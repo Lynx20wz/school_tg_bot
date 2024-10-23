@@ -6,10 +6,12 @@ from datetime import datetime, timedelta
 import requests
 from loguru import logger
 
+from get_token import get_token
+
 logger.remove()
 logger.add(
         sink=sys.stdout,
-        level='INFO',
+        level='DEBUG',
         format='{time:H:mm:ss}:{line}| <level>{level}</level> | {message}',
 )
 
@@ -39,69 +41,127 @@ class lesson_class():
         return (self.name, self.day, self.cabinet_number, self.homework)
 
 
-def get_homework_from_website(date: datetime = datetime.now()) -> json:
+def get_homework_from_website(date: datetime = datetime.now()) -> dict:
     """
     Парсит данные со школьного портала и заносит их в файл в формате json.
 
-    :param date: Любое число от 1 до 31.
+    :param day: Любое число от 1 до 31.
+    :param month: Любое число от 1 до 12
     :return: Json-файл с домашним заданием.
     """
-    date_in_str = date.replace(year=datetime.now().year, month=datetime.now().month)
-    Monday = (date_in_str + timedelta(days=7 + (1 - date_in_str.isoweekday()) if (1 - date_in_str.isoweekday()) != 0 else 0))
-    begin_date = Monday.strftime('%Y-%m-%d')
-    end_date = (Monday + timedelta(days=4)).strftime('%Y-%m-%d')
+    date_in_str = datetime(datetime.now().year, date.month, date.day)
+    monday = (date_in_str + timedelta(days=7 + (1 - date_in_str.isoweekday()) if (1 - date_in_str.isoweekday()) != 0 else 0))
+    begin_date = monday.strftime('%Y-%m-%d')
+    end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
 
     logger.info(f'{begin_date} - {end_date}:')
 
-    cookies = {
-        'auth_flag': 'region',
-        'user_login': 'prokopishinmn',
-        'obr_id': '3617590',
-        'subsystem_id': '2',
-        'cluster': '',
-        'aupd_current_role': '2:1',
-        'auth_token': 'eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIzNjE3NTkwIiwic2NwIjoib3BlbmlkIHByb2ZpbGUiLCJtc2giOiJkZDBlNjA0NC0xMzhjLTRlNTItODlhYi1mMmEwZGE5YzliN2MiLCJpc3MiOiJodHRwczpcL1wvYXV0aGVkdS5tb3NyZWcucnUiLCJyb2wiOiIiLCJzc28iOiIxMDkxMDQwNjYwIiwiYXVkIjoiMjoxIiwibmJmIjoxNzI2MjAzMzcwLCJhdGgiOiJlc2lhIiwicmxzIjoiezE6WzE4MzoxNjpbXSwzMDo0OltdLDQwOjE6W10sMjExOjE5OltdLDUzMzo0ODpbXSwyMDoyOltdXX0iLCJyZ24iOiI1MCIsImV4cCI6MTcyNzA2NzM3MCwiaWF0IjoxNzI2MjAzMzcwLCJqdGkiOiJiNWIwZDQwYi1kMWJkLTQ1OTctYjBkNC0wYmQxYmQ4NTk3ZjgifQ.jgPc-vdmofCrkP2zbFfA3GxLTqtLEHSxVG0KN0RuBMhxPs-XXc83Lj1ztxrNcDEZ7W3KleaSFjmq3prvdIfE13PjG3LPQY9IskyBH4DHNIQZZKvERojHM6s8jYISwVZf8edq0XCzRBJb1AkvTnxtqCfyR6DI3tRJDTe0V3qrr2jgKvbF2zT5MY88xeL4oAJah4QQmEn85jt5tjKua2Jtu5HTt2rHz1UonByjJ5fwdUAE4weIvvRGdZawnreJB4opJDDJTf9g-Vw2ur1Yp4pu-WDjnPjqFYz0O23uZO4ovWriUkmKV-mXJqCwXaScHHoO2NsRwHNBazPWcVkgUPG2xQ',
-        'active_student': '1530640',
-        'aupd_token': 'eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIzNjE3NTkwIiwic2NwIjoib3BlbmlkIHByb2ZpbGUiLCJtc2giOiJkZDBlNjA0NC0xMzhjLTRlNTItODlhYi1mMmEwZGE5YzliN2MiLCJpc3MiOiJodHRwczpcL1wvYXV0aGVkdS5tb3NyZWcucnUiLCJyb2wiOiIiLCJzc28iOiIxMDkxMDQwNjYwIiwiYXVkIjoiMjoxIiwibmJmIjoxNzI2MjMzNDQ1LCJhdGgiOiJlc2lhIiwicmxzIjoiezE6WzE4MzoxNjpbXSwzMDo0OltdLDQwOjE6W10sMjExOjE5OltdLDUzMzo0ODpbXSwyMDoyOltdXX0iLCJyZ24iOiI1MCIsImV4cCI6MTcyNzA5NzQ0NSwiaWF0IjoxNzI2MjMzNDQ1LCJqdGkiOiI0OWVlNDZjYy03MGU5LTQ1NWYtYWU0Ni1jYzcwZTk3NTVmNmMifQ.Ey3KYZyh6t9aykUNGfkipIujnvSWT4D7GZ6XsNIdDuhoYcaHYAIxuu1CLFbxsowPJrY5rnPN9JDdBij4MLWGm2FSO2xr-tRVfmx64ITL3WOwCClBRE4hN0ch4BXIc71g2Kw6hYYacdY3cfovTXgNhX8ABTUvkhogHKN9gDV-XJkgyENmZyywOPjgfyhdTRMU43uMOmWsahS5zalnMHz72inWe22MInd_t77F2eO8WK6mFXW2dg3r9UweU5qW4wJagEdbU_V8oNp0WQa1Jnf89G-NWg7OjIvds1RXGfrmQXgj1EUOzKj-VXynWT3Q94d2CwormY-3dbcSj68YpMWxVw',
-        'JSESSIONID': 'node01trhzupz9owd5130dxxytr0mik27269143.node0',
-    }
+    with open('cache_school_bot.json', 'r', encoding='utf-8') as cache_file:
+        cookies: dict = json.loads(cache_file.read())
+        try:
+            cookies = cookies.get('cache').get('cookies')
+        except KeyError:
+            cookies = get_token()
+
+    def req(cookie):
+        headers = {
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Authorization': cookie.get('aupd_token'),
+            'Connection': 'keep-alive',
+            'Content-Type': 'application/json;charset=UTF-8',
+            'DNT': '1',
+            'Profile-Id': '1530640',
+            'Profile-Type': 'student',
+            'Referer': 'https://authedu.mosreg.ru/diary/schedules/schedule',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            'X-Mes-Role': 'student',
+            'X-mes-subsystem': 'familyweb',
+            'sec-ch-ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+        }
+        params = {
+            'person_ids': 'dd0e6044-138c-4e52-89ab-f2a0da9c9b7c',
+            'begin_date': begin_date,
+            'end_date': end_date,
+            'expand': 'marks,homework',
+        }
+
+        return requests.get(
+                'https://authedu.mosreg.ru/api/eventcalendar/v1/api/events',
+                params=params,
+                cookies=cookie,
+                headers=headers,
+        )
+
+    response = req(cookies)
+    if response.status_code > 400:
+        cookies = get_token()
+        response = req(cookies)
+        if response.status_code > 400:
+            print('Что-то пошло не так!')
+
+    with open('school.json', 'w', encoding='utf-8') as file:
+        json.dump(response.json(), file, indent=4)
+
+    return cookies
+
+
+def get_links_in_lesson(response: dict, cookies: dict) -> dict:
+    """
+    :param response: словарь который содержит в себе домашнее задание
+    :param cookies: словарь с cookies
+    :type response: dict
+    :return: изначальный словарь, но ключом links в каждом уроке будет подробная информация об уроке
+    :rtype: dict
+    """
     headers = {
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Authorization': 'Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIzNjE3NTkwIiwic2NwIjoib3BlbmlkIHByb2ZpbGUiLCJtc2giOiJkZDBlNjA0NC0xMzhjLTRlNTItODlhYi1mMmEwZGE5YzliN2MiLCJpc3MiOiJodHRwczpcL1wvYXV0aGVkdS5tb3NyZWcucnUiLCJyb2wiOiIiLCJzc28iOiIxMDkxMDQwNjYwIiwiYXVkIjoiMjoxIiwibmJmIjoxNzI2MjAzMzcwLCJhdGgiOiJlc2lhIiwicmxzIjoiezE6WzE4MzoxNjpbXSwzMDo0OltdLDQwOjE6W10sMjExOjE5OltdLDUzMzo0ODpbXSwyMDoyOltdXX0iLCJyZ24iOiI1MCIsImV4cCI6MTcyNzA2NzM3MCwiaWF0IjoxNzI2MjAzMzcwLCJqdGkiOiJiNWIwZDQwYi1kMWJkLTQ1OTctYjBkNC0wYmQxYmQ4NTk3ZjgifQ.jgPc-vdmofCrkP2zbFfA3GxLTqtLEHSxVG0KN0RuBMhxPs-XXc83Lj1ztxrNcDEZ7W3KleaSFjmq3prvdIfE13PjG3LPQY9IskyBH4DHNIQZZKvERojHM6s8jYISwVZf8edq0XCzRBJb1AkvTnxtqCfyR6DI3tRJDTe0V3qrr2jgKvbF2zT5MY88xeL4oAJah4QQmEn85jt5tjKua2Jtu5HTt2rHz1UonByjJ5fwdUAE4weIvvRGdZawnreJB4opJDDJTf9g-Vw2ur1Yp4pu-WDjnPjqFYz0O23uZO4ovWriUkmKV-mXJqCwXaScHHoO2NsRwHNBazPWcVkgUPG2xQ',
+        'Authorization': cookies.get('aupd_token'),
         'Connection': 'keep-alive',
         'Content-Type': 'application/json;charset=UTF-8',
         'DNT': '1',
         'Profile-Id': '1530640',
         'Profile-Type': 'student',
-        'Referer': 'https://authedu.mosreg.ru/diary/schedules/schedule/?date=13-09-2024',
         'Sec-Fetch-Dest': 'empty',
         'Sec-Fetch-Mode': 'cors',
         'Sec-Fetch-Site': 'same-origin',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-        'X-Mes-Role': 'student',
         'X-mes-subsystem': 'familyweb',
         'sec-ch-ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
         'sec-ch-ua-mobile': '?0',
         'sec-ch-ua-platform': '"Windows"',
     }
-    params = {
-        'person_ids': 'dd0e6044-138c-4e52-89ab-f2a0da9c9b7c',
-        'begin_date': begin_date,
-        'end_date': end_date,
-        'expand': 'marks,homework',
-    }
+    params = (
+        ('plan_id', '2751477'),
+        ('school_id', '347'),
+        ('ignore_owner', 'true'),
+        ('with_modules', 'true'),
+        ('with_topics', 'true'),
+        ('with_lessons', 'true'),
+        ('status', 'for_calendar_plan'),
+    )
 
-    response = requests.get(
-            'https://authedu.mosreg.ru/api/eventcalendar/v1/api/events',
-            params=params,
-            cookies=cookies,
-            headers=headers,
-    ).json()
+    # for lesson in response.get('response'):
+    lesson = response.get('response')[8]
+    try:
+        lid, hid = lesson.get('id'), lesson.get('homework').get('entries')[0].get('homework_entry_id')
+        headers['Referer'] = f'https://authedu.mosreg.ru/diary/schedules/lesson/{lid}_normal?active_tab=homework&sidebar=homeworks_{hid}'
+        response_with_lesson_id = requests.get(
+            'https://authedu.mosreg.ru/api/ej/plan/family/v1/lesson_plans', headers=headers, params=params, cookies=cookies
+            ).text
+        lesson['response_data'] = response_with_lesson_id
+    except TypeError as e:
+        logger.debug(f'Поймано исключение {lesson} - {e}')
 
     with open('school.json', 'w', encoding='utf-8') as file:
         json.dump(response, file, indent=4, ensure_ascii=False)
-
+    return response
 
 def split_day(response: dict) -> dict:
     """
@@ -180,9 +240,10 @@ def full_parse(date: datetime = datetime.now()) -> str:
 
     :param date: Дата, для которой нужно произвести анализ. По умолчанию - сегодняшняя дата.
     """
-    get_homework_from_website(date)
+    cookies = get_homework_from_website(date)
     with open('school.json', 'r', encoding='utf-8') as file:
-        response = json.load(file)
+        response = json.loads(file.read())
+    # get_links_in_lesson(response, cookies)
     return homework_output(split_day(response))
 
 
@@ -196,15 +257,15 @@ if __name__ == '__main__':
     if mode == 1:
         while True:
             try:
-                d_date = datetime.strptime(input('Введите день: ') or datetime.now().strftime('%d'), '%d').replace(
-                        year=datetime.now().year, month=datetime.now().month
-                )
-                if d_date.isoweekday() in [5, 6, 7]:
-                    is_weekend = True
+                d_date = int(input('Введите день: ')) or datetime.now().strftime('%d')
+                m_date = int(input('Введите месяц: ')) or datetime.now().strftime('%m')
+                f_date = datetime(datetime.now().year, m_date, d_date)
+                if f_date.isoweekday() in [5, 6, 7]:
+                    is_weekend = True   
                 break
             except ValueError:
                 print("Некорректный формат даты. Попробуйте снова.")
-        full_parse(d_date)
+        full_parse(f_date)
     elif mode == 2:
         print(homework_output(need_output=True))
     else:
