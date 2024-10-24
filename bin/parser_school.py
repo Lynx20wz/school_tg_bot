@@ -2,6 +2,7 @@ import json
 import sys
 from copy import deepcopy
 from datetime import datetime, timedelta
+from typing import Optional
 
 import requests
 from loguru import logger
@@ -30,7 +31,7 @@ def get_weekday(number):
     return weekdays.get(number)
 
 
-class lesson_class():
+class lesson_class:
     def __init__(self, day, name, cabinet_number, homework, /) -> None:
         self.day = day
         self.name = name
@@ -38,15 +39,14 @@ class lesson_class():
         self.homework = homework
 
     def get_lesson_info(self):
-        return (self.name, self.day, self.cabinet_number, self.homework)
+        return self.name, self.day, self.cabinet_number, self.homework
 
 
 def get_homework_from_website(date: datetime = datetime.now()) -> dict:
     """
     Парсит данные со школьного портала и заносит их в файл в формате json.
 
-    :param day: Любое число от 1 до 31.
-    :param month: Любое число от 1 до 12
+    :param date: текущая дата
     :return: Json-файл с домашним заданием.
     """
     date_in_str = datetime(datetime.now().year, date.month, date.day)
@@ -56,7 +56,7 @@ def get_homework_from_website(date: datetime = datetime.now()) -> dict:
 
     logger.info(f'{begin_date} - {end_date}:')
 
-    with open('cache_school_bot.json', 'r', encoding='utf-8') as cache_file:
+    with open('../temp/cache_school_bot.json', 'r', encoding='utf-8') as cache_file:
         cookies: dict = json.loads(cache_file.read())
         try:
             cookies = cookies.get('cache').get('cookies')
@@ -105,7 +105,7 @@ def get_homework_from_website(date: datetime = datetime.now()) -> dict:
         if response.status_code > 400:
             print('Что-то пошло не так!')
 
-    with open('school.json', 'w', encoding='utf-8') as file:
+    with open('../temp/school.json', 'w', encoding='utf-8') as file:
         json.dump(response.json(), file, indent=4)
 
     return cookies
@@ -153,15 +153,16 @@ def get_links_in_lesson(response: dict, cookies: dict) -> dict:
         lid, hid = lesson.get('id'), lesson.get('homework').get('entries')[0].get('homework_entry_id')
         headers['Referer'] = f'https://authedu.mosreg.ru/diary/schedules/lesson/{lid}_normal?active_tab=homework&sidebar=homeworks_{hid}'
         response_with_lesson_id = requests.get(
-            'https://authedu.mosreg.ru/api/ej/plan/family/v1/lesson_plans', headers=headers, params=params, cookies=cookies
-            ).text
+                'https://authedu.mosreg.ru/api/ej/plan/family/v1/lesson_plans', headers=headers, params=params, cookies=cookies
+        ).text
         lesson['response_data'] = response_with_lesson_id
     except TypeError as e:
         logger.debug(f'Поймано исключение {lesson} - {e}')
 
-    with open('school.json', 'w', encoding='utf-8') as file:
+    with open('../temp/school.json', 'w', encoding='utf-8') as file:
         json.dump(response, file, indent=4, ensure_ascii=False)
     return response
+
 
 def split_day(response: dict) -> dict:
     """
@@ -182,23 +183,24 @@ def split_day(response: dict) -> dict:
             dow += 1
             lessons_dict['дни'].append({date_weekday: deepcopy(lessons)})
             lessons.clear()
-    if lessons != []:
+    if lessons:
         dow += 1
         lessons_dict['дни'].append({date_weekday: deepcopy(lessons)})
         lessons.clear()
     return lessons_dict
 
 
-def homework_output(dict_hk: dict = None, need_output: bool = False) -> dict:
+def homework_output(dict_hk: dict = None, need_output: bool = False) -> Optional[dict, str]:
     """
     Функция для вывода домашнего задания.
 
     :param dict_hk: Словарь с информацией о домашних заданиях.
+    :param need_output: Нужен ли вывод строки или вернуть словарь.
     :return: Возвращает строку с информацией о домашнем задании.
     """
     output = {}
-    if dict_hk == None:
-        with open('school.json', 'r', encoding='utf-8') as file:
+    if dict_hk is None:
+        with open('../temp/school.json', 'r', encoding='utf-8') as file:
             response = json.load(file)
             lessons_dict = split_day(response)
     else:
@@ -234,14 +236,14 @@ def homework_output(dict_hk: dict = None, need_output: bool = False) -> dict:
         return return_output
 
 
-def full_parse(date: datetime = datetime.now()) -> str:
+def full_parse(date: datetime = datetime.now()) -> dict:
     """
     Функция для полного анализа расписания.
 
     :param date: Дата, для которой нужно произвести анализ. По умолчанию - сегодняшняя дата.
     """
     cookies = get_homework_from_website(date)
-    with open('school.json', 'r', encoding='utf-8') as file:
+    with open('../temp/school.json', 'r', encoding='utf-8') as file:
         response = json.loads(file.read())
     # get_links_in_lesson(response, cookies)
     return homework_output(split_day(response))
@@ -261,7 +263,7 @@ if __name__ == '__main__':
                 m_date = int(input('Введите месяц: ')) or datetime.now().strftime('%m')
                 f_date = datetime(datetime.now().year, m_date, d_date)
                 if f_date.isoweekday() in [5, 6, 7]:
-                    is_weekend = True   
+                    is_weekend = True
                 break
             except ValueError:
                 print("Некорректный формат даты. Попробуйте снова.")

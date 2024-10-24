@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from loguru import logger
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, Message
 
-import Parser_school as ps
+import parser_school as ps
 
 log_format = '{time:H:mm:ss} | "{function}" | {line} | <level>{level}</level> | {message}'
 
@@ -20,7 +20,7 @@ logger.add(
         format=log_format,
 )
 logger.add(
-        sink='log.log',
+        sink='..//temp//log.log',
         level='INFO',
         mode='a',
         format=log_format,
@@ -30,12 +30,12 @@ load_dotenv()
 
 API_BOT = os.getenv('API_BOT')
 ADMIN_ID = int(os.getenv('MY_ID'))
-CACHE_FILE = os.path.join(os.path.dirname(__file__), 'cache_school_bot.json')
+CACHE_FILE = '../temp/cache_school_bot.json'
 
 bot = telebot.TeleBot(API_BOT)
 
 
-class user_class():
+class user_class:
     users = []
 
     def __init__(self, username: str, userid: int, debug: bool = False, setting_dw: bool = False, setting_notification: bool = True):
@@ -157,11 +157,11 @@ class user_class():
             settings_file['users'][self.username]['settings']['setting_notification'] = self.setting_notification
             with open(CACHE_FILE, 'w') as file:
                 json.dump(settings_file, file, indent=4)
-            logger.info(f'Новые ��астройки пользователя {self.username} сохранены!')
+            logger.info(f'Новые настройки пользователя {self.username} сохранены!')
 
 
 class cache_class():
-    def __init__(self, cache_restart: bool = False) -> 'cache_class':
+    def __init__(self, cache_restart: bool = False):
         """
         :param cache_restart: если True, то номер запуска в кэше повыситься на один, и время обновиться.
         :return: Объект cache_class, который хранит в себе сам кэш, номер запуска,
@@ -206,7 +206,8 @@ class cache_class():
         # logger.info(f'Кэш прочитан {cache}')
         return cache
 
-    def user_record(self, a_user: 'user_class') -> None:
+    @classmethod
+    def user_record(cls, a_user: 'user_class') -> None:
         """
         Если пользователь существовал то ничего не происходит. Если не существовал, то заносит a_user в файл кэша
 
@@ -217,11 +218,11 @@ class cache_class():
             cache_json = json.loads(file.read())
             # logger.debug(f'{a_user.username} подгрузил файл кэша - {cache_json}')
         try:
-            if cache_json.get('users').get(a_user.username) == None:
+            if cache_json.get('users').get(a_user.username) is None:
                 raise KeyError
             else:
                 logger.info(f'Пользователь {a_user.username} уже создан')
-        except (KeyError, AttributeError) as e:
+        except (KeyError, AttributeError):
             with open(CACHE_FILE, 'w') as file:
                 cache_json['users'][a_user.username] = {'username': a_user.username, 'userid': a_user.userid, 'debug': a_user.debug,
                                                         'settings': {'setting_dw': a_user.setting_dw,
@@ -229,11 +230,12 @@ class cache_class():
                 json.dump(cache_json, file, indent=4)
                 logger.info(f'Пользователь {a_user.username} был создан и занесён в кэш!')
 
-    def homework_record(self, homework: dict) -> json:
+    @classmethod
+    def homework_record(cls, homework: dict) -> json:
         """
         Записывает домашнее задание в файл кэша
 
-        :param message: объект типа message
+        :param homework: домашнее задание которое нужно записать в файл
         :return: Обновлённый файл кэша
         """
         logger.debug(homework)
@@ -280,7 +282,7 @@ def start(message):
     logger.info(f'Бота запустили ({message.from_user.username})')
     murkup = main_button()
     user_class(message.from_user.username, message.from_user.id)
-    with open('Логирование.png', 'rb') as file:
+    with open('../Логирование.png', 'rb') as file:
         bot.send_photo(
                 message.chat.id,
                 photo=file,
@@ -290,14 +292,13 @@ def start(message):
 
 
 @bot.message_handler(func=lambda message: message.text == 'Расписание 📅')
-@user_class.get_user(cache_class())
-def timetable(message, user):
+def timetable(message):
     day_of_week = datetime.now().isoweekday()
     if day_of_week in [5, 6, 7]:
         name_of_day = ps.get_weekday(1)
     else:
-        ps.get_weekday(day_of_week)
-    output = f'*{name_of_day}*:\n'
+        name_of_day = ps.get_weekday(day_of_week + 1)
+    output = f'*{name_of_day} расписание*:\n'
     logger.debug(name_of_day)
     for i, lesson in enumerate(timetable_dict.get('schedule').get(name_of_day), 1):
         lesson_subject = timetable_dict.get('subjects').get(lesson[0])
@@ -360,7 +361,7 @@ def homework(message: Message, user: user_class) -> None:
         output += f'-------------------------------\nВсего задано уроков: {len(one_day)}'
     if link:
         murkup = InlineKeyboardMarkup()
-        button1 = InlineKeyboardButton(text='Бот для решения ЦДЗ', url='https://t.me/simplecdz_bot')
+        button1 = InlineKeyboardButton(text='Бот для решения ЦДЗ', url='https://t.me/CDZ_AnswersBot')
         murkup.add(button1)
         bot.send_message(message.chat.id, output, parse_mode="Markdown", reply_markup=murkup, disable_notification=user.setting_notification)
     else:
@@ -375,7 +376,7 @@ def social_networks(message):
     murkup.add(button1, button2)
     bot.send_message(
         message.chat.id,
-        'Конечно! Держи:\n\nОфициалная группа в WhatsApp: https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg (создатель @Lynx20wz)\nПодпольная группа в WhatsApp: https://chat.whatsapp.com/GvkRfG5W5JoApXrnu4T9Yo (создатель @Juggernaut_45)\n\n Если ссылки не работают обратиться к @Lynx20wz)',
+            'Конечно! Держи:\n\nОфициальная группа в WhatsApp: https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg (создатель @Lynx20wz)\nПодпольная группа в WhatsApp: https://chat.whatsapp.com/GvkRfG5W5JoApXrnu4T9Yo (создатель @Juggernaut_45)\n\n Если ссылки не работают обратиться к @Lynx20wz)',
         reply_markup=murkup
         )
 
@@ -395,7 +396,7 @@ def developer(message, user):
 
 # Settings
 @user_class.get_user(cache_class())
-def make_setting_button(user, message=None):
+def make_setting_button(user):
     murkup = ReplyKeyboardMarkup(resize_keyboard=True)
     button1 = KeyboardButton('Назад')
     button2 = KeyboardButton('Выдача на неделю' if user.setting_dw else 'Выдача на день')
@@ -408,7 +409,7 @@ def make_setting_button(user, message=None):
 @user_class.get_user(cache_class())
 def settings(message, user):
     logger.info(f'Вызваны настройки ({message.from_user.username})')
-    murkup = make_setting_button(message)
+    murkup = make_setting_button()
     bot.send_message(
         message.chat.id,
         'Настройки:\n\n*Выдача на день\\неделю:*\n\t1) *"Выдача на день":* будет высылаться домашнее задание только на завтра. В пятницу, субботу и воскресенье будет высылаться домашнее задание на понедельник.\n\t2) *"Выдача на неделю":* Будет высылаться домашнее задание на все оставшиеся дни недели.\n\n*Уведомления:*\n\t1) *"Уведомления вкл.":* включает звук уведомлений для каждого сообщения.\n\t2) *"Уведомления выкл.":* отключает звук уведомления для каждого сообщения.',
@@ -464,7 +465,7 @@ def unknown_command(message, user):
 # Запуск бота
 if __name__ == '__main__':
     cache = cache_class(True)
-    with open('schedule.json', 'r', encoding='utf-8') as file:
+    with open('../schedule.json', 'r', encoding='utf-8') as file:
         timetable_dict = json.load(file)
     restart()
     logger.info(f'------------- Запуск номер: {cache.number_of_starts} -------------')

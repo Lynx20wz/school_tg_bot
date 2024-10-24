@@ -5,10 +5,10 @@ from os import getenv
 
 from dotenv import load_dotenv
 from loguru import logger
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
-from seleniumwire import webdriver
 
 load_dotenv()
 
@@ -21,7 +21,7 @@ logger.add(
 
 
 def get_token():
-    service = Service('D:\\System folder\\Documents\\Lynx_python\\school_tg_bot\\geckodriver.exe')
+    service = Service('.//geckodriver.exe')
     firefox_options = Options()
     firefox_options.add_argument("--headless")  # Запуск в тихом режиме (без окна браузера)
     firefox_options.add_argument("--disable-dev-shm-usage")  # (Опционально) для ресурсов
@@ -55,12 +55,12 @@ def get_token():
 
 
 if __name__ == '__main__':
-    with open('cache_school_bot.json', 'r') as cache_file:
+    with open('../temp/cache_school_bot.json', 'r') as cache_file:
         file = json.loads(cache_file.read())
     cookies = get_token()
     cookies['active_student'] = '1530640'
     cookies['JSESSIONID'] = 'node0hp6xu059ggkfh3mg75dk8vi3119422664.node0'
     file['cache']['cookies'] = cookies
-    with open('cache_school_bot.json', 'w') as cache_file:
+    with open('../temp/cache_school_bot.json', 'w') as cache_file:
         json.dump(file, cache_file, indent=4)
-    print('Готово!')
+    print(cookies)
