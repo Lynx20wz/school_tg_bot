@@ -50,7 +50,7 @@ def get_homework_from_website(date: datetime = datetime.now()) -> dict:
     :return: Json-файл с домашним заданием.
     """
     date_in_str = datetime(datetime.now().year, date.month, date.day)
-    monday = (date_in_str + timedelta(days=7 + (1 - date_in_str.isoweekday()) if (1 - date_in_str.isoweekday()) != 0 else 0))
+    monday = (date_in_str + timedelta(days=1 - date_in_str.isoweekday() if 1 - date_in_str.isoweekday() > -5 else 8 - date_in_str.isoweekday()))
     begin_date = monday.strftime('%Y-%m-%d')
     end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
 
