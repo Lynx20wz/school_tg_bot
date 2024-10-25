@@ -1,7 +1,8 @@
 import json
 import os
+import sqlite3
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Union, Tuple, Optional
 
 import telebot
@@ -65,7 +66,8 @@ class user_class:
             self.users.append(self)
 
         # Вызов метода user_record для того чтобы записать пользователя в файл кэша
-        cache.user_record(self)
+        db.add_user(self.data)
+        # cache.user_record(self)
 
     @classmethod
     def get_user_from_massive(cls, username: str, mode: int = 1) -> Optional[Union[Tuple[str, int, bool, bool, bool], 'user_class', int]]:
@@ -89,11 +91,9 @@ class user_class:
         return None
 
     @staticmethod
-    def get_user(cache: 'cache_class'):
+    def get_user():
         """
         Возвращает пользователя из кэша.
-
-        :param cache: Объект cache_class.
         :return: Возвращает функцию-обёртку для получения пользователя.
         """
 
@@ -106,12 +106,13 @@ class user_class:
                     if existing_user:
                         user = existing_user
                     else:
+                        user_db = db.get_user(message.from_user.username)
                         user = user_class(
                                 message.from_user.username,
                                 message.from_user.id,
-                                cache.users.get(message.from_user.username).get('debug', False),
-                                cache.users.get(message.from_user.username).get('settings').get('setting_dw', True),
-                                cache.users.get(message.from_user.username).get('settings').get('setting_notification', True)
+                                user_db.get('debug', False),
+                                user_db.get('setting_dw', True),
+                                user_db.get('setting_notification', True)
                         )
                 return func(message=message, user=user, *args, **kwargs)
 
@@ -119,10 +120,13 @@ class user_class:
 
         return wrapper
 
-    def save_settings(self, setting_dw: bool = None, setting_notification: bool = None, debug: bool = None, save_cache: bool = False):
+    def save_settings(
+        self, database: 'DataBase', setting_dw: bool = None, setting_notification: bool = None, debug: bool = None, save_cache: bool = False
+        ):
         """
         Сохраняет настройки пользователя.
 
+        :param database: База данных
         :param setting_dw: Флаг настройки уведомлений.
         :param setting_notification: Флаг уведомлений.
         :param debug: Флаг отладки.
@@ -149,18 +153,18 @@ class user_class:
             user_class.users[user_index].debug = debug
 
         if save_cache:
-            with open(CACHE_FILE, 'r') as file:
-                settings_file = json.loads(file.read())
-            settings_file.get(self.userid)
-            settings_file['users'][self.username]['debug'] = self.debug
-            settings_file['users'][self.username]['settings']['setting_dw'] = self.setting_dw
-            settings_file['users'][self.username]['settings']['setting_notification'] = self.setting_notification
-            with open(CACHE_FILE, 'w') as file:
-                json.dump(settings_file, file, indent=4)
+            with sqlite3.connect(database.path) as db:
+                cursor = db.cursor()
+                cursor.execute(
+                    """
+                                        UPDATE users SET (debug, setting_dw, setting_notification) = ? WHERE username = ?
+                                    """, (self.debug, self.setting_dw, self.setting_notification, self.username)
+                    )
+
             logger.info(f'Новые настройки пользователя {self.username} сохранены!')
 
 
-class cache_class():
+class cache_class:
     def __init__(self, cache_restart: bool = False):
         """
         :param cache_restart: если True, то номер запуска в кэше повыситься на один, и время обновиться.
@@ -173,21 +177,17 @@ class cache_class():
         self.cache = cache
         self.number_of_starts = cache.get('cache').get('number_of_starts')
         self.time = cache.get('cache').get('time')
-        self.users = cache.get('users')
 
-        try:
-            self.homework = cache.get('homework')
-        except AttributeError:
-            self.homework = None
-
-        if cache_restart:
-            with open(CACHE_FILE, 'w') as cache_file:
-                cache['cache']['number_of_starts'] = self.number_of_starts + 1
-                cache['cache']['time'] = str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
-                json.dump(cache, cache_file, indent=4)
-            cache_restart = False
-            # logger.debug('Кэш обновлён')
-
+    #
+    #
+    #         # if cache_restart:
+    #         #     with open(CACHE_FILE, 'w') as cache_file:
+    #         #         cache['cache']['number_of_starts'] = self.number_of_starts + 1
+    #         #         cache['cache']['time'] = str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
+    #         #         json.dump(cache, cache_file, indent=4)
+    #         #     cache_restart = False
+    #             # logger.debug('Кэш обновлён')
+    #
     @classmethod
     def cache_read(cls) -> dict:
         """
@@ -206,53 +206,116 @@ class cache_class():
         # logger.info(f'Кэш прочитан {cache}')
         return cache
 
-    @classmethod
-    def user_record(cls, a_user: 'user_class') -> None:
-        """
-        Если пользователь существовал то ничего не происходит. Если не существовал, то заносит a_user в файл кэша
 
-        :param a_user: объект класса user_class
-        :return: None | Обновлённый файл кэша
-        """
-        with open(CACHE_FILE, 'r') as file:
-            cache_json = json.loads(file.read())
-            # logger.debug(f'{a_user.username} подгрузил файл кэша - {cache_json}')
-        try:
-            if cache_json.get('users').get(a_user.username) is None:
-                raise KeyError
-            else:
-                logger.info(f'Пользователь {a_user.username} уже создан')
-        except (KeyError, AttributeError):
-            with open(CACHE_FILE, 'w') as file:
-                cache_json['users'][a_user.username] = {'username': a_user.username, 'userid': a_user.userid, 'debug': a_user.debug,
-                                                        'settings': {'setting_dw': a_user.setting_dw,
-                                                                     'setting_notification': a_user.setting_notification}}
-                json.dump(cache_json, file, indent=4)
-                logger.info(f'Пользователь {a_user.username} был создан и занесён в кэш!')
+#
+#     @classmethod
+#     def user_record(cls, a_user: 'user_class') -> None:
+#         """
+#         Если пользователь существовал то ничего не происходит. Если не существовал, то заносит a_user в файл кэша
+#
+#         :param a_user: объект класса user_class
+#         :return: None | Обновлённый файл кэша
+#         """
+#         with open(CACHE_FILE, 'r') as file:
+#             cache_json = json.loads(file.read())
+#             # logger.debug(f'{a_user.username} подгрузил файл кэша - {cache_json}')
+#         try:
+#             if cache_json.get('users').get(a_user.username) is None:
+#                 raise KeyError
+#             else:
+#                 logger.info(f'Пользователь {a_user.username} уже создан')
+#         except (KeyError, AttributeError):
+#             with open(CACHE_FILE, 'w') as file:
+#                 cache_json['users'][a_user.username] = {'username': a_user.username, 'userid': a_user.userid, 'debug': a_user.debug,
+#                                                         'settings': {'setting_dw': a_user.setting_dw,
+#                                                                      'setting_notification': a_user.setting_notification}}
+#                 json.dump(cache_json, file, indent=4)
+#                 logger.info(f'Пользователь {a_user.username} был создан и занесён в кэш!')
+#
+#     @classmethod
+#     def homework_record(cls, homework: dict) -> json:
+#         """
+#         Записывает домашнее задание в файл кэша
+#
+#         :param homework: домашнее задание которое нужно записать в файл
+#         :return: Обновлённый файл кэша
+#         """
+#         logger.debug(homework)
+#         with open(CACHE_FILE, 'r', encoding='utf-8') as file:
+#             cache_json = json.loads(file.read())
+#         with open(CACHE_FILE, 'w', encoding='utf-8') as file:
+#             cache_json['homework'] = homework
+#             cache_json['homework']['timestep'] = str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
+#             json.dump(cache_json, file, indent=4, ensure_ascii=False)
 
-    @classmethod
-    def homework_record(cls, homework: dict) -> json:
-        """
-        Записывает домашнее задание в файл кэша
+class DataBase:
+    def __init__(self, path: str):
+        self.path = path
 
-        :param homework: домашнее задание которое нужно записать в файл
-        :return: Обновлённый файл кэша
-        """
-        logger.debug(homework)
-        with open(CACHE_FILE, 'r', encoding='utf-8') as file:
-            cache_json = json.loads(file.read())
-        with open(CACHE_FILE, 'w', encoding='utf-8') as file:
-            cache_json['homework'] = homework
-            json.dump(cache_json, file, indent=4, ensure_ascii=False)
+    def add_user(self, user: tuple):
+        with sqlite3.connect(self.path) as db:
+            cursor = db.cursor()
+
+            cursor.execute(
+                """
+                            CREATE TABLE IF NOT EXISTS users (
+                                userid INTEGER PRIMARY KEY,
+                                username TEXT NOT NULL,
+                                debug INTEGER DEFAULT 0,
+                                setting_dw INTEGER DEFAULT 0,
+                                setting_notification INTEGER DEFAULT 0,
+                                homework INTEGER, FOREIGN KEY (homework) REFERENCES homework(id)
+                            );
+                            """
+                )
+
+            cursor.execute('SELECT userid FROM users WHERE userid = ?', (user[1],))
+            if cursor.fetchone():
+                return
+
+            cursor.execute(
+                    '''
+                        INSERT INTO users 
+                        (username, userid, debug, setting_dw, setting_notification) 
+                        VALUES (?, ?, ?, ?, ?)
+                        ''', (user[0], user[1], user[2], user[3], user[4])
+            )
+
+    def get_user(self, username: str) -> dict:
+        with sqlite3.connect(self.path) as db:
+            cursor = db.cursor()
+
+            cursor.execute(
+                    """
+                    SELECT * FROM users WHERE username = ?
+                    """, (username,)
+            )
+
+            user = cursor.fetchone()
+
+            if user:
+                return {
+                    'userid': user[0],
+                    'username': user[1],
+                    'debug': bool(user[2]),
+                    'setting_dw': bool(user[3]),
+                    'setting_notification': bool(user[4]),
+                    'homework': user[5]
+                }
 
 
-def main_button():
+@user_class.get_user()
+def main_button(user, message):
     murkup = ReplyKeyboardMarkup(resize_keyboard=True)
     button1 = KeyboardButton('Расписание 📅')
     button2 = KeyboardButton('Домашнее задание 📓')
     button3 = KeyboardButton('Соц. сети класса 💬')
     button4 = KeyboardButton('Настройки ⚙️')
-    murkup.add(button1, button2, button3, button4)
+    if user.debug:
+        button5 = KeyboardButton('Команды дебага')
+        murkup.add(button1, button2, button3, button4, button5)
+    else:
+        murkup.add(button1, button2, button3, button4)
     return murkup
 
 
@@ -280,7 +343,7 @@ def restart():
 @bot.message_handler(commands=['start'])
 def start(message):
     logger.info(f'Бота запустили ({message.from_user.username})')
-    murkup = main_button()
+    murkup = main_button(message=message)
     user_class(message.from_user.username, message.from_user.id)
     with open('../Логирование.png', 'rb') as file:
         bot.send_photo(
@@ -313,7 +376,7 @@ def timetable(message):
 
 
 @bot.message_handler(func=lambda message: message.text == 'Домашнее задание 📓')
-@user_class.get_user(cache_class())
+@user_class.get_user()
 def homework(message: Message, user: user_class) -> None:
     """
     Высылает текст домашнего задания в соответствии с настройками пользователя.
@@ -321,51 +384,55 @@ def homework(message: Message, user: user_class) -> None:
     :param message: Полученное сообщение.
     :param user: Объект пользователя.
     """
-    logger.info(f'Вызвана домашка ({message.from_user.username})')
-    link: bool = False
+    # TODO: Убрать строку снизу
+    bot.send_message(message.chat.id, 'Временно это функция не работает 😥(')
 
-    if datetime.now() - datetime.strptime(cache.time, '%Y-%m-%d-%H:%M:%S') < timedelta(minutes=45) and cache.cache.get('homework'):
-        hk = cache.homework
-    else:
-        logger.info('Домашка была обновлена')
-        hk = ps.full_parse()
-        cache.homework_record(hk)
 
-    output = ''
-    if user.setting_dw:  # Если setting_dw равен True, выводим на всю неделю
-        for i, one_day in enumerate(hk.values(), start=1):
-            day_of_week = ps.get_weekday(i)
-            output += f'\n*{day_of_week}*:\n'
-            for number_lesson, lesson in enumerate(one_day, start=1):
-                output += f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
-                if 'https://' in lesson[2]:
-                    link = True
-        output += f'-------------------------------\nВсего задано уроков: {sum(len(day) for day in hk.values())}'
-    else:  # Если False то на один день
-        today_index = datetime.now().isoweekday()
-
-        if today_index in [5, 6, 7]:
-            next_day_index = 1
-        else:
-            next_day_index = today_index + 1
-
-        day_of_week = ps.get_weekday(next_day_index)
-        output += f'\n*{day_of_week}*:\n'
-        one_day = hk.get(day_of_week)
-
-        logger.debug(f'{next_day_index} - {today_index}) {one_day}')
-        for number_lesson, lesson in enumerate(one_day, start=1):
-            output += f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
-            if 'https://' in lesson[2]:
-                link = True
-        output += f'-------------------------------\nВсего задано уроков: {len(one_day)}'
-    if link:
-        murkup = InlineKeyboardMarkup()
-        button1 = InlineKeyboardButton(text='Бот для решения ЦДЗ', url='https://t.me/CDZ_AnswersBot')
-        murkup.add(button1)
-        bot.send_message(message.chat.id, output, parse_mode="Markdown", reply_markup=murkup, disable_notification=user.setting_notification)
-    else:
-        bot.send_message(message.chat.id, output, parse_mode="Markdown", disable_notification=user.setting_notification)
+#     logger.info(f'Вызвана домашка ({message.from_user.username})')
+#     link: bool = False
+#
+#     if datetime.now() - datetime.strptime(cache.time, '%Y-%m-%d-%H:%M:%S') < timedelta(minutes=45) and cache.cache.get('homework'):
+#         hk = cache.homework
+#     else:
+#         logger.info('Домашка была обновлена')
+#         hk = ps.full_parse()
+#         cache.homework_record(hk)
+#
+#     output = ''
+#     if user.setting_dw:  # Если setting_dw равен True, выводим на всю неделю
+#         for i, one_day in enumerate(hk.values(), start=1):
+#             day_of_week = ps.get_weekday(i)
+#             output += f'\n*{day_of_week}*:\n'
+#             for number_lesson, lesson in enumerate(one_day, start=1):
+#                 output += f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
+#                 if 'https://' in lesson[2]:
+#                     link = True
+#         output += f'-------------------------------\nВсего задано уроков: {sum(len(day) for day in hk.values())}'
+#     else:  # Если False то на один день
+#         today_index = datetime.now().isoweekday()
+#
+#         if today_index in [5, 6, 7]:
+#             next_day_index = 1
+#         else:
+#             next_day_index = today_index + 1
+#
+#         day_of_week = ps.get_weekday(next_day_index)
+#         output += f'\n*{day_of_week}*:\n'
+#         one_day = hk.get(day_of_week)
+#
+#         logger.debug(f'{next_day_index} - {today_index}) {one_day}')
+#         for number_lesson, lesson in enumerate(one_day, start=1):
+#             output += f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
+#             if 'https://' in lesson[2]:
+#                 link = True
+#         output += f'-------------------------------\nВсего задано уроков: {len(one_day)}'
+#     if link:
+#         murkup = InlineKeyboardMarkup()
+#         button1 = InlineKeyboardButton(text='Бот для решения ЦДЗ', url='https://t.me/CDZ_AnswersBot')
+#         murkup.add(button1)
+#         bot.send_message(message.chat.id, output, parse_mode="Markdown", reply_markup=murkup, disable_notification=user.setting_notification)
+#     else:
+#         bot.send_message(message.chat.id, output, parse_mode="Markdown", disable_notification=user.setting_notification)
 
 
 @bot.message_handler(func=lambda message: message.text == 'Соц. сети класса 💬')
@@ -382,11 +449,11 @@ def social_networks(message):
 
 
 @bot.message_handler(func=lambda message: message.text == 'Debug')
-@user_class.get_user(cache_class())
+@user_class.get_user()
 def developer(message, user):
     if message.from_user.id == ADMIN_ID:
         user.debug = True
-        user.save_settings(debug=user.debug, save_cache=True)
+        user.save_settings(debug=user.debug, save_cache=True, database=db)
         bot.send_message(message.chat.id, f'Удачной разработки, {user.username}')
         logger.warning(f'{user.username} получил роль разработчика!')
     else:
@@ -395,7 +462,6 @@ def developer(message, user):
 
 
 # Settings
-@user_class.get_user(cache_class())
 def make_setting_button(user):
     murkup = ReplyKeyboardMarkup(resize_keyboard=True)
     button1 = KeyboardButton('Назад')
@@ -406,10 +472,10 @@ def make_setting_button(user):
 
 
 @bot.message_handler(func=lambda message: message.text == 'Настройки ⚙️')
-@user_class.get_user(cache_class())
+@user_class.get_user()
 def settings(message, user):
     logger.info(f'Вызваны настройки ({message.from_user.username})')
-    murkup = make_setting_button()
+    murkup = make_setting_button(user)
     bot.send_message(
         message.chat.id,
         'Настройки:\n\n*Выдача на день\\неделю:*\n\t1) *"Выдача на день":* будет высылаться домашнее задание только на завтра. В пятницу, субботу и воскресенье будет высылаться домашнее задание на понедельник.\n\t2) *"Выдача на неделю":* Будет высылаться домашнее задание на все оставшиеся дни недели.\n\n*Уведомления:*\n\t1) *"Уведомления вкл.":* включает звук уведомлений для каждого сообщения.\n\t2) *"Уведомления выкл.":* отключает звук уведомления для каждого сообщения.',
@@ -418,7 +484,7 @@ def settings(message, user):
 
 
 @bot.message_handler(func=lambda message: message.text in ['Выдача на неделю', 'Выдача на день'])
-@user_class.get_user(cache_class())
+@user_class.get_user()
 def change_delivery(message, user):
     if message.text == 'Выдача на неделю':
         user.setting_dw = False
@@ -431,7 +497,7 @@ def change_delivery(message, user):
 
 
 @bot.message_handler(func=lambda message: message.text in ['Уведомления вкл.', 'Уведомления выкл.'])
-@user_class.get_user(cache_class())
+@user_class.get_user()
 def change_notification(message, user):
     if message.text == 'Уведомления вкл.':
         user.setting_notification = False
@@ -444,27 +510,55 @@ def change_notification(message, user):
 
 
 @bot.message_handler(func=lambda message: message.text == 'Назад')
-@user_class.get_user(cache_class())
+@user_class.get_user()
 def exit_settings(message, user):
     logger.debug(f'{user.setting_dw} - {user.setting_notification}')
     logger.info(f'Вышел из настроек ({message.from_user.username})')
     user.save_settings(user.setting_dw, user.setting_notification, True)
-    bot.send_message(message.chat.id, 'Главное меню', reply_markup=main_button(), disable_notification=user.setting_notification)
+    bot.send_message(message.chat.id, 'Главное меню', reply_markup=main_button(message=message), disable_notification=user.setting_notification)
 
+
+# Debug
+def make_debug_button():
+    murkup = ReplyKeyboardMarkup(resize_keyboard=True)
+    button1 = KeyboardButton('Назад')
+    button2 = KeyboardButton('Запрос пользователя')
+    murkup.add(button1, button2)
+    return murkup
+
+
+@bot.message_handler(func=lambda message: message.text == 'Команды дебага')
+def command_debug(message):
+    bot.send_message(message.chat.id, f'Добро пожаловать разработчик, тут все нужные для тебя команды!', reply_markup=make_debug_button())
+
+
+@bot.message_handler(func=lambda message: message.text == 'Запрос пользователя')
+def get_user(message):
+    bot.send_message(message.chat.id, f'{db.get_user(message.from_user.username)}')
+
+
+@bot.message_handler(func=lambda message: message.text == 'Назад')
+@user_class.get_user()
+def exit_settings(message, user):
+    logger.debug(f'{user.setting_dw} - {user.setting_notification}')
+    logger.info(f'Вышел из команд дебага ({message.from_user.username})')
+    bot.send_message(message.chat.id, 'Главное меню', reply_markup=main_button(message=message), disable_notification=user.setting_notification)
 
 @bot.message_handler(func=lambda message: message.text)
-@user_class.get_user(cache_class())
+@user_class.get_user()
 def unknown_command(message, user):
-    logger.error(f'Вызвана несуществующая команда! ({message.from_user.username})')
+    logger.error(f'Вызвана несуществующая команда! ({message.from_user.username}):\n"{message.text}"')
     bot.send_message(
         message.chat.id, "Извините, нет такой команды. Пожалуйста, используйте доступные кнопки или команды.",
         disable_notification=user.setting_notification
         )
 
 
+
 # Запуск бота
 if __name__ == '__main__':
     cache = cache_class(True)
+    db = DataBase('../temp/DataBase.db')
     with open('../schedule.json', 'r', encoding='utf-8') as file:
         timetable_dict = json.load(file)
     restart()

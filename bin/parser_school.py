@@ -2,7 +2,7 @@ import json
 import sys
 from copy import deepcopy
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Union
 
 import requests
 from loguru import logger
@@ -190,7 +190,7 @@ def split_day(response: dict) -> dict:
     return lessons_dict
 
 
-def homework_output(dict_hk: dict = None, need_output: bool = False) -> Optional[dict, str]:
+def homework_output(dict_hk: dict = None, need_output: bool = False) -> Union[dict, str]:
     """
     Функция для вывода домашнего задания.
 
