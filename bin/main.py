@@ -31,7 +31,6 @@ load_dotenv()
 
 API_BOT = os.getenv('API_BOT')
 ADMIN_ID = int(os.getenv('MY_ID'))
-CACHE_FILE = '../temp/cache_school_bot.json'
 
 bot = telebot.TeleBot(API_BOT)
 
@@ -107,13 +106,15 @@ class user_class:
                         user = existing_user
                     else:
                         user_db = db.get_user(message.from_user.username)
-                        user = user_class(
-                                message.from_user.username,
-                                message.from_user.id,
-                                user_db.get('debug', False),
-                                user_db.get('setting_dw', True),
-                                user_db.get('setting_notification', True)
-                        )
+                        user = None
+                        if user_db:
+                            user = user_class(
+                                    message.from_user.username,
+                                    message.from_user.id,
+                                    user_db.get('debug', False),
+                                    user_db.get('setting_dw', True),
+                                    user_db.get('setting_notification', True)
+                            )
                 return func(message=message, user=user, *args, **kwargs)
 
             return wrapped
@@ -156,97 +157,11 @@ class user_class:
             with sqlite3.connect(database.path) as db:
                 cursor = db.cursor()
                 cursor.execute(
-                    """
-                                        UPDATE users SET (debug, setting_dw, setting_notification) = ? WHERE username = ?
-                                    """, (self.debug, self.setting_dw, self.setting_notification, self.username)
+                        'UPDATE users SET debug = ?, setting_dw = ?, setting_notification = ? WHERE username = ?',
+                        (self.debug, self.setting_dw, self.setting_notification, self.username)
                     )
 
             logger.info(f'Новые настройки пользователя {self.username} сохранены!')
-
-
-class cache_class:
-    def __init__(self, cache_restart: bool = False):
-        """
-        :param cache_restart: если True, то номер запуска в кэше повыситься на один, и время обновиться.
-        :return: Объект cache_class, который хранит в себе сам кэш, номер запуска,
-         время обновления кэша, пользователей из файла кэша.
-        """
-        cache = cache_class.cache_read()
-
-        #  методы класса
-        self.cache = cache
-        self.number_of_starts = cache.get('cache').get('number_of_starts')
-        self.time = cache.get('cache').get('time')
-
-    #
-    #
-    #         # if cache_restart:
-    #         #     with open(CACHE_FILE, 'w') as cache_file:
-    #         #         cache['cache']['number_of_starts'] = self.number_of_starts + 1
-    #         #         cache['cache']['time'] = str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
-    #         #         json.dump(cache, cache_file, indent=4)
-    #         #     cache_restart = False
-    #             # logger.debug('Кэш обновлён')
-    #
-    @classmethod
-    def cache_read(cls) -> dict:
-        """
-        Читает файл кэша, если такого нет, то создаёт с базовым содержанием.
-        :return: dict c кэшем заполненный из файла кэша или содержанием по умолчанию.
-        """
-        try:  # если файл кэша есть
-            with open(CACHE_FILE, 'r', encoding='utf-8') as cache_file:
-                cache = json.loads(cache_file.read())
-        except (json.decoder.JSONDecodeError, FileNotFoundError):  # если файла кэша нет
-            with open(CACHE_FILE, 'w') as cache_file:
-                write_to_file = {'cache': {'number_of_starts': 1, 'time': str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))}, 'users': {}}
-                cache = write_to_file
-                json.dump(write_to_file, cache_file, indent=4)
-
-        # logger.info(f'Кэш прочитан {cache}')
-        return cache
-
-
-#
-#     @classmethod
-#     def user_record(cls, a_user: 'user_class') -> None:
-#         """
-#         Если пользователь существовал то ничего не происходит. Если не существовал, то заносит a_user в файл кэша
-#
-#         :param a_user: объект класса user_class
-#         :return: None | Обновлённый файл кэша
-#         """
-#         with open(CACHE_FILE, 'r') as file:
-#             cache_json = json.loads(file.read())
-#             # logger.debug(f'{a_user.username} подгрузил файл кэша - {cache_json}')
-#         try:
-#             if cache_json.get('users').get(a_user.username) is None:
-#                 raise KeyError
-#             else:
-#                 logger.info(f'Пользователь {a_user.username} уже создан')
-#         except (KeyError, AttributeError):
-#             with open(CACHE_FILE, 'w') as file:
-#                 cache_json['users'][a_user.username] = {'username': a_user.username, 'userid': a_user.userid, 'debug': a_user.debug,
-#                                                         'settings': {'setting_dw': a_user.setting_dw,
-#                                                                      'setting_notification': a_user.setting_notification}}
-#                 json.dump(cache_json, file, indent=4)
-#                 logger.info(f'Пользователь {a_user.username} был создан и занесён в кэш!')
-#
-#     @classmethod
-#     def homework_record(cls, homework: dict) -> json:
-#         """
-#         Записывает домашнее задание в файл кэша
-#
-#         :param homework: домашнее задание которое нужно записать в файл
-#         :return: Обновлённый файл кэша
-#         """
-#         logger.debug(homework)
-#         with open(CACHE_FILE, 'r', encoding='utf-8') as file:
-#             cache_json = json.loads(file.read())
-#         with open(CACHE_FILE, 'w', encoding='utf-8') as file:
-#             cache_json['homework'] = homework
-#             cache_json['homework']['timestep'] = str(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
-#             json.dump(cache_json, file, indent=4, ensure_ascii=False)
 
 class DataBase:
     def __init__(self, path: str):
@@ -255,19 +170,6 @@ class DataBase:
     def add_user(self, user: tuple):
         with sqlite3.connect(self.path) as db:
             cursor = db.cursor()
-
-            cursor.execute(
-                """
-                            CREATE TABLE IF NOT EXISTS users (
-                                userid INTEGER PRIMARY KEY,
-                                username TEXT NOT NULL,
-                                debug INTEGER DEFAULT 0,
-                                setting_dw INTEGER DEFAULT 0,
-                                setting_notification INTEGER DEFAULT 0,
-                                homework INTEGER, FOREIGN KEY (homework) REFERENCES homework(id)
-                            );
-                            """
-                )
 
             cursor.execute('SELECT userid FROM users WHERE userid = ?', (user[1],))
             if cursor.fetchone():
@@ -281,27 +183,35 @@ class DataBase:
                         ''', (user[0], user[1], user[2], user[3], user[4])
             )
 
-    def get_user(self, username: str) -> dict:
+    def get_user(self, username: str = None) -> dict[str, bool | str | int] | list[dict[str, bool | str | int]]:
         with sqlite3.connect(self.path) as db:
             cursor = db.cursor()
 
-            cursor.execute(
-                    """
-                    SELECT * FROM users WHERE username = ?
-                    """, (username,)
-            )
+            if username is not None:
+                cursor.execute(
+                        """
+                        SELECT * FROM users WHERE username = ?
+                        """, (username,)
+                )
 
-            user = cursor.fetchone()
+                user = cursor.fetchone()
 
-            if user:
-                return {
-                    'userid': user[0],
-                    'username': user[1],
-                    'debug': bool(user[2]),
-                    'setting_dw': bool(user[3]),
-                    'setting_notification': bool(user[4]),
-                    'homework': user[5]
-                }
+                if user:
+                    return dict(zip([column[0] for column in cursor.description], user))
+            else:
+                cursor.execute(
+                        """
+                        SELECT * FROM users
+                        """, (username,)
+                )
+
+                users_db = cursor.fetchall()
+                return [dict(zip([column[0] for column in cursor.description], user)) for user in users_db]
+
+    def get_time_homework_cache(self, id_cache):
+        with sqlite3.connect(self.path) as db:
+            cursor = db.cursor()
+            cursor.execute('SELECT ')
 
 
 @user_class.get_user()
@@ -311,32 +221,59 @@ def main_button(user, message):
     button2 = KeyboardButton('Домашнее задание 📓')
     button3 = KeyboardButton('Соц. сети класса 💬')
     button4 = KeyboardButton('Настройки ⚙️')
-    if user.debug:
+    murkup.add(button1, button2, button3, button4)
+    if user and user.debug:
         button5 = KeyboardButton('Команды дебага')
-        murkup.add(button1, button2, button3, button4, button5)
-    else:
-        murkup.add(button1, button2, button3, button4)
+        murkup.add(button5)
     return murkup
 
 
-def restart():
+def restart(database):
     """
     Перезапускает бота и отправка оповещение каждому пользователю из файла кэша
     """
-    try:
-        for user_overkill in cache.cache.get('users').values():
-            user = user_class(
-                    user_overkill.get('username'), user_overkill.get('user_id'),
-                    setting_dw=user_overkill.get('settings').get('setting_dw'),
-                    setting_notification=user_overkill.get('settings').get('setting_notification'),
-                    debug=user_overkill.get('settings').get('debug')
-            )
-            murkup = ReplyKeyboardMarkup()
-            button1 = KeyboardButton('/start')
-            murkup.add(button1)
-            # bot.send_message(user_overkill.get('chat_id'), 'Бот вновь запущен!\nДля лучшего опыта использования не будет лишним ввести команду /start', disable_notification=user.setting_notification, reply_markup=murkup)
-    except AttributeError:
-        pass
+    with sqlite3.connect(database.path) as db:
+        cursor = db.cursor()
+        cursor.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS users (
+                    userid INTEGER PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    debug INTEGER DEFAULT 0,
+                    setting_dw INTEGER DEFAULT 0,
+                    setting_notification INTEGER DEFAULT 0,
+                    homework INTEGER, FOREIGN KEY (homework) REFERENCES homework_cache(id)
+                );
+                '''
+        )
+
+        cursor.execute(
+                '''
+                CREATE TABLE IF NOT EXISTS homework_cache (
+                    id INTEGER PRIMARY KEY ,
+                    cache TEXT 
+                );
+                '''
+        )
+
+        cursor.execute('SELECT * FROM users')
+        users = cursor.fetchall()
+        try:
+            for user in users:
+                user_dict = dict(zip([column[0] for column in cursor.description], user))
+                # logger.debug(user_dict)
+                user_r = user_class(
+                        user_dict.get('username'), user_dict.get('user_id'),
+                        setting_dw=user_dict.get('setting_dw'),
+                        setting_notification=user_dict.get('setting_notification'),
+                        debug=user_dict.get('debug')
+                )
+                murkup = ReplyKeyboardMarkup()
+                button1 = KeyboardButton('/start')
+                murkup.add(button1)
+                # bot.send_message(user.get('chat_id'), 'Бот вновь запущен!\nДля лучшего опыта использования не будет лишним ввести команду /start', disable_notification=user.setting_notification, reply_markup=murkup)
+        except AttributeError:
+            pass
 
 
 # СТАРТ!
@@ -349,7 +286,11 @@ def start(message):
         bot.send_photo(
                 message.chat.id,
                 photo=file,
-                caption='Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д. Найдёте ошибки сообщите: @Lynx20wz )\n\nP.S: Также должен сказать, что в целях отлова ошибок я веду логирование, то есть, я вижу какую функцию вы запустили и ваш никнейм в телеграм (на фото видно).',
+                caption='''
+Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д.
+Найдёте ошибки сообщите: @Lynx20wz )\n\nP.S: Также должен сказать, что в целях отлова ошибок я веду логирование, то есть,
+я вижу какую функцию вы запустили и ваш никнейм в телеграм (на фото видно).
+                ''',
                 reply_markup=murkup
         )
 
@@ -387,16 +328,15 @@ def homework(message: Message, user: user_class) -> None:
     # TODO: Убрать строку снизу
     bot.send_message(message.chat.id, 'Временно это функция не работает 😥(')
 
+    logger.info(f'Вызвана домашка ({message.from_user.username})')
+    # link: bool = False
 
-#     logger.info(f'Вызвана домашка ({message.from_user.username})')
-#     link: bool = False
-#
-#     if datetime.now() - datetime.strptime(cache.time, '%Y-%m-%d-%H:%M:%S') < timedelta(minutes=45) and cache.cache.get('homework'):
-#         hk = cache.homework
-#     else:
-#         logger.info('Домашка была обновлена')
-#         hk = ps.full_parse()
-#         cache.homework_record(hk)
+    # if datetime.now() - datetime.strptime(cache.time, '%Y-%m-%d-%H:%M:%S') < timedelta(minutes=45) and cache.cache.get('homework'):
+    #
+    # else:
+    #     logger.info('Домашка была обновлена')
+    #     hk = ps.full_parse()
+    #     cache.homework_record(hk)
 #
 #     output = ''
 #     if user.setting_dw:  # Если setting_dw равен True, выводим на всю неделю
@@ -448,19 +388,6 @@ def social_networks(message):
         )
 
 
-@bot.message_handler(func=lambda message: message.text == 'Debug')
-@user_class.get_user()
-def developer(message, user):
-    if message.from_user.id == ADMIN_ID:
-        user.debug = True
-        user.save_settings(debug=user.debug, save_cache=True, database=db)
-        bot.send_message(message.chat.id, f'Удачной разработки, {user.username}')
-        logger.warning(f'{user.username} получил роль разработчика!')
-    else:
-        bot.send_message(message.chat.id, 'Вы не являетесь разработчиком!')
-        logger.warning(f'{user.username} пытался получить разработчика')
-
-
 # Settings
 def make_setting_button(user):
     murkup = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -478,7 +405,13 @@ def settings(message, user):
     murkup = make_setting_button(user)
     bot.send_message(
         message.chat.id,
-        'Настройки:\n\n*Выдача на день\\неделю:*\n\t1) *"Выдача на день":* будет высылаться домашнее задание только на завтра. В пятницу, субботу и воскресенье будет высылаться домашнее задание на понедельник.\n\t2) *"Выдача на неделю":* Будет высылаться домашнее задание на все оставшиеся дни недели.\n\n*Уведомления:*\n\t1) *"Уведомления вкл.":* включает звук уведомлений для каждого сообщения.\n\t2) *"Уведомления выкл.":* отключает звук уведомления для каждого сообщения.',
+            '''
+    Настройки:\n\n*Выдача на день\\неделю:*\n\t1) *"Выдача на день":* будет высылаться домашнее задание только на завтра.
+    В пятницу, субботу и воскресенье будет высылаться домашнее задание на понедельник.\n\t
+    2) *"Выдача на неделю":* Будет высылаться домашнее задание на все оставшиеся дни недели.\n\n*Уведомления:*\n\t
+    1) *"Уведомления вкл.":* включает звук уведомлений для каждого сообщения.\n\t
+    2) *"Уведомления выкл.":* отключает звук уведомления для каждого сообщения.
+             ''',
         reply_markup=murkup, parse_mode='Markdown', disable_notification=user.setting_notification
         )
 
@@ -519,11 +452,25 @@ def exit_settings(message, user):
 
 
 # Debug
+@bot.message_handler(func=lambda message: message.text == 'Debug')
+@user_class.get_user()
+def developer(message, user):
+    if message.from_user.id == ADMIN_ID:
+        user.debug = True
+        user.save_settings(debug=user.debug, save_cache=True, database=db)
+        bot.send_message(message.chat.id, f'Удачной разработки, {user.username}! 😉', reply_markup=main_button(message))
+        logger.warning(f'{user.username} получил роль разработчика!')
+    else:
+        bot.send_message(message.chat.id, 'Вы не являетесь разработчиком! 😑', reply_markup=main_button(message))
+        logger.warning(f'{user.username} пытался получить разработчика')
+
+
 def make_debug_button():
     murkup = ReplyKeyboardMarkup(resize_keyboard=True)
     button1 = KeyboardButton('Назад')
     button2 = KeyboardButton('Запрос пользователя')
-    murkup.add(button1, button2)
+    button3 = KeyboardButton('Выкл. дебаг')
+    murkup.add(button1, button2, button3)
     return murkup
 
 
@@ -535,6 +482,15 @@ def command_debug(message):
 @bot.message_handler(func=lambda message: message.text == 'Запрос пользователя')
 def get_user(message):
     bot.send_message(message.chat.id, f'{db.get_user(message.from_user.username)}')
+
+
+@bot.message_handler(func=lambda message: message.text == 'Выкл. дебага')
+@user_class.get_user()
+def remove_debug(message, user):
+    user.debug = False
+    user.save_settings(debug=user.debug, save_cache=True, database=db)
+    bot.send_message(message.chat.id, f'Выключаю дебаг...', reply_markup=main_button(message))
+    logger.debug(f'{user.username} отключил роль разработчика.')
 
 
 @bot.message_handler(func=lambda message: message.text == 'Назад')
@@ -549,18 +505,16 @@ def exit_settings(message, user):
 def unknown_command(message, user):
     logger.error(f'Вызвана несуществующая команда! ({message.from_user.username}):\n"{message.text}"')
     bot.send_message(
-        message.chat.id, "Извините, нет такой команды. Пожалуйста, используйте доступные кнопки или команды.",
-        disable_notification=user.setting_notification
+            message.chat.id, "Извините, нет такой команды. Пожалуйста, используйте доступные кнопки или команды.",
+            disable_notification=user.setting_notification
         )
 
 
 
 # Запуск бота
 if __name__ == '__main__':
-    cache = cache_class(True)
     db = DataBase('../temp/DataBase.db')
     with open('../schedule.json', 'r', encoding='utf-8') as file:
         timetable_dict = json.load(file)
-    restart()
-    logger.info(f'------------- Запуск номер: {cache.number_of_starts} -------------')
+    restart(database=db)
     bot.polling(none_stop=True)
