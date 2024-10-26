@@ -1,8 +1,9 @@
 import json
 import os
+import re
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Union, Tuple, Optional
 
 import telebot
@@ -32,13 +33,17 @@ load_dotenv()
 API_BOT = os.getenv('API_BOT')
 ADMIN_ID = int(os.getenv('MY_ID'))
 
+DB_PATH = '../temp/DataBase.db'
+
 bot = telebot.TeleBot(API_BOT)
 
 
 class user_class:
     users = []
 
-    def __init__(self, username: str, userid: int, debug: bool = False, setting_dw: bool = False, setting_notification: bool = True):
+    def __init__(
+        self, username: str, userid: int, debug: bool = False, setting_dw: bool = False, setting_notification: bool = True, homework_id: int = None
+        ):
         """
         Инициализирует объект user_class.
 
@@ -48,12 +53,26 @@ class user_class:
         :param setting_dw: Флаг настройки уведомлений.
         :param setting_notification: Флаг уведомлений.
         """
-        self.data = (username, userid, setting_dw, setting_notification, debug)
         self.username: str = username
         self.userid: int = userid
+        with sqlite3.connect(db.path) as database:
+            database.row_factory = sqlite3.Row
+            cursor = database.cursor()
+            while True:
+                cursor.execute('SELECT * FROM users WHERE userid = ?', (self.userid,)).fetchone()
+                result = cursor.fetchone()
+                if result is not None:
+                    debug = result.get('debug')
+                    setting_dw = result.get('setting_dw')
+                    setting_notification = result.get('setting_notification')
+                    break
+                else:
+                    db.add_user((username, userid, setting_dw, setting_notification, debug))
+
         self.debug: bool = debug
         self.setting_dw: bool = setting_dw
         self.setting_notification: bool = setting_notification
+        self.data = (username, userid, setting_dw, setting_notification, debug)
 
         # Следующий код проверяет есть ли данный пользователь в массиве, если есть обновляет настройки пользователя в массиве
         existing_user = self.get_user_from_massive(username, 2)
@@ -64,9 +83,6 @@ class user_class:
         else:
             self.users.append(self)
 
-        # Вызов метода user_record для того чтобы записать пользователя в файл кэша
-        db.add_user(self.data)
-        # cache.user_record(self)
 
     @classmethod
     def get_user_from_massive(cls, username: str, mode: int = 1) -> Optional[Union[Tuple[str, int, bool, bool, bool], 'user_class', int]]:
@@ -106,6 +122,7 @@ class user_class:
                         user = existing_user
                     else:
                         user_db = db.get_user(message.from_user.username)
+                        logger.debug(user_db)
                         user = None
                         if user_db:
                             user = user_class(
@@ -113,7 +130,8 @@ class user_class:
                                     message.from_user.id,
                                     user_db.get('debug', False),
                                     user_db.get('setting_dw', True),
-                                    user_db.get('setting_notification', True)
+                                    user_db.get('setting_notification', True),
+                                    user_db.get('homework')
                             )
                 return func(message=message, user=user, *args, **kwargs)
 
@@ -122,7 +140,7 @@ class user_class:
         return wrapper
 
     def save_settings(
-        self, database: 'DataBase', setting_dw: bool = None, setting_notification: bool = None, debug: bool = None, save_cache: bool = False
+        self, database: 'BaseDate', setting_dw: bool = None, setting_notification: bool = None, debug: bool = None, save_db: bool = False
         ):
         """
         Сохраняет настройки пользователя.
@@ -131,8 +149,8 @@ class user_class:
         :param setting_dw: Флаг настройки уведомлений.
         :param setting_notification: Флаг уведомлений.
         :param debug: Флаг отладки.
-        :param save_cache: Если True, то настройки будут обновленный не только в массиве пользователей,
-        а также и в файле кэша.
+        :param save_db: Если True, то настройки будут обновленный не только в массиве пользователей,
+        а также и в БД.
 
         :return: Обновлённый файл кэша
         """
@@ -153,7 +171,7 @@ class user_class:
             user_class.users[user_index].setting_notification = setting_notification
             user_class.users[user_index].debug = debug
 
-        if save_cache:
+        if save_db:
             with sqlite3.connect(database.path) as db:
                 cursor = db.cursor()
                 cursor.execute(
@@ -163,7 +181,8 @@ class user_class:
 
             logger.info(f'Новые настройки пользователя {self.username} сохранены!')
 
-class DataBase:
+
+class BaseDate:
     def __init__(self, path: str):
         self.path = path
 
@@ -185,6 +204,7 @@ class DataBase:
 
     def get_user(self, username: str = None) -> dict[str, bool | str | int] | list[dict[str, bool | str | int]]:
         with sqlite3.connect(self.path) as db:
+            db.row_factory = sqlite3.Row
             cursor = db.cursor()
 
             if username is not None:
@@ -196,8 +216,7 @@ class DataBase:
 
                 user = cursor.fetchone()
 
-                if user:
-                    return dict(zip([column[0] for column in cursor.description], user))
+                if user: return dict(user)
             else:
                 cursor.execute(
                         """
@@ -205,13 +224,43 @@ class DataBase:
                         """, (username,)
                 )
 
-                users_db = cursor.fetchall()
-                return [dict(zip([column[0] for column in cursor.description], user)) for user in users_db]
+                users = cursor.fetchall()
+                return [dict(user) for user in users]
 
-    def get_time_homework_cache(self, id_cache):
+    def get_homework(self, user) -> tuple:
         with sqlite3.connect(self.path) as db:
+            db.row_factory = sqlite3.Row
             cursor = db.cursor()
-            cursor.execute('SELECT ')
+
+            cursor.execute(
+                '''
+                            SELECT hc.timestamp, hc.cache
+                            FROM users u
+                            INNER JOIN homework_cache hc ON hc.id = u.homework_id
+                            WHERE u.username = ?;
+                            ''', (user.username,)
+                )
+
+            return cursor.fetchone() if cursor is not None else None
+
+    def set_homework(self, user: 'user_class', homework: dict):
+        with sqlite3.connect(self.path) as db:
+            db.row_factory = sqlite3.Row
+            cursor = db.cursor()
+            homework_str = json.dumps(homework, ensure_ascii=False)
+            cursor.execute('SELECT * FROM homework_cache WHERE cache = ?', (homework_str,))
+            result = cursor.fetchone()
+            if result:
+                cursor.execute('UPDATE users SET homework_id = ? WHERE username = ?', (result.get('id'), user.username))
+            else:
+                cursor.execute(
+                    'INSERT INTO homework_cache (timestamp, cache) VALUES (?, ?)',
+                    (datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M'), homework_str)
+                    )
+                cursor.execute('UPDATE users SET homework_id = ? WHERE username = ?', (cursor.lastrowid, user.username))
+
+
+
 
 
 @user_class.get_user()
@@ -233,47 +282,43 @@ def restart(database):
     Перезапускает бота и отправка оповещение каждому пользователю из файла кэша
     """
     with sqlite3.connect(database.path) as db:
+        db.row_factory = sqlite3.Row
         cursor = db.cursor()
-        cursor.execute(
+        cursor.executescript(
                 '''
                 CREATE TABLE IF NOT EXISTS users (
                     userid INTEGER PRIMARY KEY,
                     username TEXT NOT NULL,
-                    debug INTEGER DEFAULT 0,
-                    setting_dw INTEGER DEFAULT 0,
-                    setting_notification INTEGER DEFAULT 0,
-                    homework INTEGER, FOREIGN KEY (homework) REFERENCES homework_cache(id)
+                    debug INTEGER(1) DEFAULT 0,
+                    setting_dw INTEGER(1) DEFAULT 0,
+                    setting_notification INTEGER(1) DEFAULT 0,
+                    login VARCHAR,
+                    password VARCHAR,
+                    homework_id INTEGER, FOREIGN KEY (homework_id) REFERENCES homework_cache(id)
                 );
-                '''
-        )
-
-        cursor.execute(
-                '''
                 CREATE TABLE IF NOT EXISTS homework_cache (
-                    id INTEGER PRIMARY KEY ,
+                    id INTEGER PRIMARY KEY,
+                    timestamp INTEGER,
                     cache TEXT 
                 );
                 '''
         )
-
         cursor.execute('SELECT * FROM users')
-        users = cursor.fetchall()
-        try:
+        # noinspection PyTypeChecker
+        users = list(map(dict, cursor.fetchall()))
+
+        map(user_class, users)
+        if users:
             for user in users:
-                user_dict = dict(zip([column[0] for column in cursor.description], user))
-                # logger.debug(user_dict)
-                user_r = user_class(
-                        user_dict.get('username'), user_dict.get('user_id'),
-                        setting_dw=user_dict.get('setting_dw'),
-                        setting_notification=user_dict.get('setting_notification'),
-                        debug=user_dict.get('debug')
-                )
                 murkup = ReplyKeyboardMarkup()
                 button1 = KeyboardButton('/start')
                 murkup.add(button1)
-                # bot.send_message(user.get('chat_id'), 'Бот вновь запущен!\nДля лучшего опыта использования не будет лишним ввести команду /start', disable_notification=user.setting_notification, reply_markup=murkup)
-        except AttributeError:
-            pass
+                bot.send_message(
+                    user.get('userid'), 'Бот вновь запущен!\nДля лучшего опыта использования не будет лишним ввести команду /start',
+                    disable_notification=user.get('setting_notification'), reply_markup=murkup
+                    )
+        logger.debug('Бот рестарт!')
+
 
 
 # СТАРТ!
@@ -281,16 +326,13 @@ def restart(database):
 def start(message):
     logger.info(f'Бота запустили ({message.from_user.username})')
     murkup = main_button(message=message)
-    user_class(message.from_user.username, message.from_user.id)
+    user_class(db, message.from_user.username, message.from_user.id)
     with open('../Логирование.png', 'rb') as file:
         bot.send_photo(
                 message.chat.id,
                 photo=file,
-                caption='''
-Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д.
-Найдёте ошибки сообщите: @Lynx20wz )\n\nP.S: Также должен сказать, что в целях отлова ошибок я веду логирование, то есть,
-я вижу какую функцию вы запустили и ваш никнейм в телеграм (на фото видно).
-                ''',
+                caption='''Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д. Найдёте ошибки сообщите: @Lynx20wz)
+                \nP.S: Также должен сказать, что в целях отлова ошибок я веду логирование, то есть, я вижу какую функцию вы запустили и ваш никнейм в телеграм (на фото видно).''',
                 reply_markup=murkup
         )
 
@@ -325,54 +367,114 @@ def homework(message: Message, user: user_class) -> None:
     :param message: Полученное сообщение.
     :param user: Объект пользователя.
     """
-    # TODO: Убрать строку снизу
-    bot.send_message(message.chat.id, 'Временно это функция не работает 😥(')
+    # bot.send_message(message.chat.id, 'Временно это функция не работает 😥(')
 
     logger.info(f'Вызвана домашка ({message.from_user.username})')
-    # link: bool = False
+    link: bool = False
 
-    # if datetime.now() - datetime.strptime(cache.time, '%Y-%m-%d-%H:%M:%S') < timedelta(minutes=45) and cache.cache.get('homework'):
-    #
-    # else:
-    #     logger.info('Домашка была обновлена')
-    #     hk = ps.full_parse()
-    #     cache.homework_record(hk)
-#
-#     output = ''
-#     if user.setting_dw:  # Если setting_dw равен True, выводим на всю неделю
-#         for i, one_day in enumerate(hk.values(), start=1):
-#             day_of_week = ps.get_weekday(i)
-#             output += f'\n*{day_of_week}*:\n'
-#             for number_lesson, lesson in enumerate(one_day, start=1):
-#                 output += f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
-#                 if 'https://' in lesson[2]:
-#                     link = True
-#         output += f'-------------------------------\nВсего задано уроков: {sum(len(day) for day in hk.values())}'
-#     else:  # Если False то на один день
-#         today_index = datetime.now().isoweekday()
-#
-#         if today_index in [5, 6, 7]:
-#             next_day_index = 1
-#         else:
-#             next_day_index = today_index + 1
-#
-#         day_of_week = ps.get_weekday(next_day_index)
-#         output += f'\n*{day_of_week}*:\n'
-#         one_day = hk.get(day_of_week)
-#
-#         logger.debug(f'{next_day_index} - {today_index}) {one_day}')
-#         for number_lesson, lesson in enumerate(one_day, start=1):
-#             output += f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
-#             if 'https://' in lesson[2]:
-#                 link = True
-#         output += f'-------------------------------\nВсего задано уроков: {len(one_day)}'
-#     if link:
-#         murkup = InlineKeyboardMarkup()
-#         button1 = InlineKeyboardButton(text='Бот для решения ЦДЗ', url='https://t.me/CDZ_AnswersBot')
-#         murkup.add(button1)
-#         bot.send_message(message.chat.id, output, parse_mode="Markdown", reply_markup=murkup, disable_notification=user.setting_notification)
-#     else:
-#         bot.send_message(message.chat.id, output, parse_mode="Markdown", disable_notification=user.setting_notification)
+    msg = bot.send_message(message.chat.id, 'Ожидайте... ⌛')
+    with sqlite3.connect(db.path) as db_con:
+        cursor = db_con.cursor()
+        result = cursor.execute('SELECT login, password FROM users WHERE username = ?', (user.username,)).fetchone()
+        if all(value is None for value in result):
+            registration_user(message, user)
+            return
+        else:
+            login, password = result
+
+    pre_hk = db.get_homework(user)
+    if pre_hk is not None and datetime.now() - datetime.strptime(pre_hk[0], '%Y-%m-%d %H:%M') < timedelta(hours=1):
+        hk = json.loads(pre_hk[1])
+    elif pre_hk is None:
+        try:
+            hk = ps.full_parse(login, password)
+        except ValueError as e:
+            logger.info('Произошла ошибка!')
+            bot.send_message(message.chat.id, text=f'{e}')
+            registration_user(message, user)
+            return
+        db.set_homework(user, hk)
+        logger.info('Домашка была обновлена')
+
+    output = ''
+    if user.setting_dw:  # Если setting_dw равен True, выводим на всю неделю
+        for i, one_day in enumerate(hk.values(), start=1):
+            day_of_week = ps.get_weekday(i)
+            output += f'\n*{day_of_week}*:\n'
+            for number_lesson, lesson in enumerate(one_day, start=1):
+                output += f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
+                if 'https://' in lesson[2]:
+                    link = True
+        output += f'-------------------------------\nВсего задано уроков: {sum(len(day) for day in hk.values())}'
+    else:  # Если False то на один день
+        today_index = datetime.now().isoweekday()
+
+        if today_index in [5, 6, 7]:
+            next_day_index = 1
+        else:
+            next_day_index = today_index + 1
+
+        day_of_week = ps.get_weekday(next_day_index)
+        output += f'\n*{day_of_week}*:\n'
+        one_day = hk.get(day_of_week)
+
+        logger.debug(f'{next_day_index} - {today_index}) {one_day}')
+        for number_lesson, lesson in enumerate(one_day, start=1):
+            output += f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
+            if 'https://' in lesson[2]:
+                link = True
+        output += f'-------------------------------\nВсего задано уроков: {len(one_day)}'
+    bot.delete_message(message.chat.id, msg.id)
+    if link:
+        murkup = InlineKeyboardMarkup()
+        button1 = InlineKeyboardButton(text='Бот для решения ЦДЗ', url='https://t.me/CDZ_AnswersBot')
+        murkup.add(button1)
+        bot.send_message(message.chat.id, output, parse_mode="Markdown", reply_markup=murkup, disable_notification=user.setting_notification)
+    else:
+        bot.send_message(message.chat.id, output, parse_mode="Markdown", disable_notification=user.setting_notification)
+
+
+def registration_user(message, user):
+    bot.send_message(
+            message.chat.id,
+            'Для доступа к домашнему заданию нужно зарегистрироваться! Введите пожалуйста свой логин для входа в школьный портал (госуслуги)'
+    )
+    bot.register_next_step_handler(message, get_password, user)
+
+
+def get_password(message, user):
+    login = message.text
+    if login and re.match(r'^[\w.-]+@[\w.-]+$', login):
+        bot.send_message(
+                message.chat.id,
+                'Теперь введите свой пароль'
+        )
+        bot.register_next_step_handler(message, end_registration, user, login)
+    else:
+        bot.send_message(
+                message.chat.id,
+                'Некорректный логин. Пожалуйста, введите ваш логин снова.'
+        )
+        registration_user(message, user)
+
+
+def end_registration(message, user, login):
+    password = message.text
+    # Здесь можно добавить логику для проверки логина и пароля
+    # Например, сохранить их в базе данных или проверить их действительность
+    with sqlite3.connect(DB_PATH) as db:
+        cursor = db.cursor()
+        cursor.execute(
+            '''
+                    UPDATE users SET login = ?, password = ? WHERE username = ?
+                    ''', (login, password, user.username)
+            )
+    bot.send_message(
+            message.chat.id,
+            f'Спасибо, {user.username}, вы зарегистрированы! Ваш пароль сохранён.',
+            reply_markup=main_button(message)
+    )
+
 
 
 @bot.message_handler(func=lambda message: message.text == 'Соц. сети класса 💬')
@@ -424,7 +526,7 @@ def change_delivery(message, user):
     elif message.text == 'Выдача на день':
         user.setting_dw = True
     murkup = make_setting_button(user)
-    user.save_settings(setting_dw=user.setting_dw)
+    user.save_settings(db, setting_dw=user.setting_dw)
     logger.info(f'Изменены настройки выдачи ({message.from_user.username} - {user.setting_dw} ({user.data}))')
     bot.send_message(message.chat.id, 'Настройки успешно изменены!', reply_markup=murkup, disable_notification=user.setting_notification)
 
@@ -437,7 +539,7 @@ def change_notification(message, user):
     elif message.text == 'Уведомления выкл.':
         user.setting_notification = True
     murkup = make_setting_button(user)
-    user.save_settings(setting_notification=user.setting_notification)
+    user.save_settings(db, setting_notification=user.setting_notification)
     logger.info(f'Изменены настройки уведомлений ({message.from_user.username} - {user.setting_notification} ({user.data}))')
     bot.send_message(message.chat.id, 'Настройки успешно изменены!', reply_markup=murkup, disable_notification=user.setting_notification)
 
@@ -447,7 +549,7 @@ def change_notification(message, user):
 def exit_settings(message, user):
     logger.debug(f'{user.setting_dw} - {user.setting_notification}')
     logger.info(f'Вышел из настроек ({message.from_user.username})')
-    user.save_settings(user.setting_dw, user.setting_notification, True)
+    user.save_settings(db, user.setting_dw, user.setting_notification, user.debug, True)
     bot.send_message(message.chat.id, 'Главное меню', reply_markup=main_button(message=message), disable_notification=user.setting_notification)
 
 
@@ -457,7 +559,7 @@ def exit_settings(message, user):
 def developer(message, user):
     if message.from_user.id == ADMIN_ID:
         user.debug = True
-        user.save_settings(debug=user.debug, save_cache=True, database=db)
+        user.save_settings(db, debug=user.debug, save_db=True)
         bot.send_message(message.chat.id, f'Удачной разработки, {user.username}! 😉', reply_markup=main_button(message))
         logger.warning(f'{user.username} получил роль разработчика!')
     else:
@@ -484,11 +586,11 @@ def get_user(message):
     bot.send_message(message.chat.id, f'{db.get_user(message.from_user.username)}')
 
 
-@bot.message_handler(func=lambda message: message.text == 'Выкл. дебага')
+@bot.message_handler(func=lambda message: message.text == 'Выкл. дебаг')
 @user_class.get_user()
 def remove_debug(message, user):
     user.debug = False
-    user.save_settings(debug=user.debug, save_cache=True, database=db)
+    user.save_settings(debug=user.debug, save_db=True, database=db)
     bot.send_message(message.chat.id, f'Выключаю дебаг...', reply_markup=main_button(message))
     logger.debug(f'{user.username} отключил роль разработчика.')
 
@@ -513,7 +615,7 @@ def unknown_command(message, user):
 
 # Запуск бота
 if __name__ == '__main__':
-    db = DataBase('../temp/DataBase.db')
+    db = BaseDate(DB_PATH)
     with open('../schedule.json', 'r', encoding='utf-8') as file:
         timetable_dict = json.load(file)
     restart(database=db)

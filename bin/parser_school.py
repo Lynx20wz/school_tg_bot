@@ -1,10 +1,12 @@
 import json
+import os
 import sys
 from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import Union
 
 import requests
+from dotenv import load_dotenv
 from loguru import logger
 
 from get_token import get_token
@@ -16,9 +18,7 @@ logger.add(
         format='{time:H:mm:ss}:{line}| <level>{level}</level> | {message}',
 )
 
-is_friday = False
-is_weekend = False
-
+load_dotenv()
 
 def get_weekday(number):
     weekdays = {1: 'Понедельник',
@@ -42,10 +42,11 @@ class lesson_class:
         return self.name, self.day, self.cabinet_number, self.homework
 
 
-def get_homework_from_website(date: datetime = datetime.now()) -> dict:
+def get_homework_from_website(login: str, password: str, date: datetime = datetime.now()) -> dict:
     """
     Парсит данные со школьного портала и заносит их в файл в формате json.
-
+    :param login: логин для парсинга с госулслуг
+    :param password: login для парсинга с госулслуг
     :param date: текущая дата
     :return: Json-файл с домашним заданием.
     """
@@ -54,14 +55,15 @@ def get_homework_from_website(date: datetime = datetime.now()) -> dict:
     begin_date = monday.strftime('%Y-%m-%d')
     end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
 
-    logger.info(f'{begin_date} - {end_date}:')
+    logger.info(f'{begin_date} - {end_date}')
 
-    with open('../temp/cache_school_bot.json', 'r', encoding='utf-8') as cache_file:
-        cookies: dict = json.loads(cache_file.read())
-        try:
-            cookies = cookies.get('cache').get('cookies')
-        except KeyError:
-            cookies = get_token()
+    #
+    # with open('../temp/cache_school_bot.json', 'r', encoding='utf-8') as cache_file:
+    #     cookies: dict = json.loads(cache_file.read())
+    #     try:
+    #         cookies = cookies.get('cache').get('cookies')
+    #     except KeyError:
+    #         cookies = get_token()
 
     def req(cookie):
         headers = {
@@ -98,12 +100,11 @@ def get_homework_from_website(date: datetime = datetime.now()) -> dict:
                 headers=headers,
         )
 
+    cookies = get_token(login, password)
     response = req(cookies)
     if response.status_code > 400:
-        cookies = get_token()
-        response = req(cookies)
-        if response.status_code > 400:
-            print('Что-то пошло не так!')
+        logger.debug(response.text)
+        raise ValueError('Пароль или логин неверный!')
 
     with open('../temp/school.json', 'w', encoding='utf-8') as file:
         json.dump(response.json(), file, indent=4)
@@ -236,13 +237,15 @@ def homework_output(dict_hk: dict = None, need_output: bool = False) -> Union[di
         return return_output
 
 
-def full_parse(date: datetime = datetime.now()) -> dict:
+def full_parse(login, password, date: datetime = datetime.now()) -> dict:
     """
     Функция для полного анализа расписания.
 
+    :param login: логин для парсинга с госулслуг
+    :param password: login для парсинга с госулслуг
     :param date: Дата, для которой нужно произвести анализ. По умолчанию - сегодняшняя дата.
     """
-    cookies = get_homework_from_website(date)
+    cookies = get_homework_from_website(login, password, date)
     with open('../temp/school.json', 'r', encoding='utf-8') as file:
         response = json.loads(file.read())
     # get_links_in_lesson(response, cookies)
@@ -262,12 +265,10 @@ if __name__ == '__main__':
                 d_date = int(input('Введите день: ')) or datetime.now().strftime('%d')
                 m_date = int(input('Введите месяц: ')) or datetime.now().strftime('%m')
                 f_date = datetime(datetime.now().year, m_date, d_date)
-                if f_date.isoweekday() in [5, 6, 7]:
-                    is_weekend = True
                 break
             except ValueError:
                 print("Некорректный формат даты. Попробуйте снова.")
-        full_parse(f_date)
+        full_parse(os.getenv('GMAIL'), os.getenv('PASSWORD'), f_date)
     elif mode == 2:
         print(homework_output(need_output=True))
     else:
