@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import re
@@ -6,14 +7,15 @@ import sys
 from datetime import datetime, timedelta
 from typing import Union, Tuple, Optional
 
-import telebot
+from aiogram import Dispatcher, Bot, F, types
+from aiogram.filters.command import Command
+from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile
 from dotenv import load_dotenv
 from loguru import logger
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, Message
 
 import parser_school as ps
 
-log_format = '{time:H:mm:ss} | "{function}" | {line} | <level>{level}</level> | {message}'
+log_format = '{time:H:mm:ss} | "{function}" | {line} ({module}) | <level>{level}</level> | {message}'
 
 logger.remove()
 logger.add(
@@ -35,8 +37,8 @@ ADMIN_ID = int(os.getenv('MY_ID'))
 
 DB_PATH = '../temp/DataBase.db'
 
-bot = telebot.TeleBot(API_BOT)
-
+bot = Bot(os.getenv('API_BOT'))
+dp = Dispatcher()
 
 class user_class:
     users = []
@@ -59,8 +61,8 @@ class user_class:
             database.row_factory = sqlite3.Row
             cursor = database.cursor()
             while True:
-                cursor.execute('SELECT * FROM users WHERE userid = ?', (self.userid,)).fetchone()
-                result = cursor.fetchone()
+                cursor.execute('SELECT * FROM users WHERE userid = ?', (self.userid,))
+                result = dict(cursor.fetchone())
                 if result is not None:
                     debug = result.get('debug')
                     setting_dw = result.get('setting_dw')
@@ -113,8 +115,8 @@ class user_class:
         """
 
         def wrapper(func):
-            def wrapped(message: Union[Message, user_class], *args, **kwargs):
-                if type(message) is user_class:
+            async def wrapped(message: Union[Message, user_class], *args):
+                if isinstance(message, user_class):
                     user = message
                 else:
                     existing_user = user_class.get_user_from_massive(message.from_user.username, 2)
@@ -122,7 +124,7 @@ class user_class:
                         user = existing_user
                     else:
                         user_db = db.get_user(message.from_user.username)
-                        logger.debug(user_db)
+                        logger.debug(f'{user_db} - {func.__name__}')
                         user = None
                         if user_db:
                             user = user_class(
@@ -133,10 +135,9 @@ class user_class:
                                     user_db.get('setting_notification', True),
                                     user_db.get('homework')
                             )
-                return func(message=message, user=user, *args, **kwargs)
 
+                return await func(message=message, user=user, *args)
             return wrapped
-
         return wrapper
 
     def save_settings(
@@ -213,7 +214,6 @@ class BaseDate:
                         SELECT * FROM users WHERE username = ?
                         """, (username,)
                 )
-
                 user = cursor.fetchone()
 
                 if user: return dict(user)
@@ -260,24 +260,25 @@ class BaseDate:
                 cursor.execute('UPDATE users SET homework_id = ? WHERE username = ?', (cursor.lastrowid, user.username))
 
 
-
-
-
-@user_class.get_user()
-def main_button(user, message):
-    murkup = ReplyKeyboardMarkup(resize_keyboard=True)
-    button1 = KeyboardButton('Расписание 📅')
-    button2 = KeyboardButton('Домашнее задание 📓')
-    button3 = KeyboardButton('Соц. сети класса 💬')
-    button4 = KeyboardButton('Настройки ⚙️')
-    murkup.add(button1, button2, button3, button4)
+def main_button(user):
+    btns = [
+        [
+            KeyboardButton(text='Расписание 📅'),
+            KeyboardButton(text='Домашнее задание 📓')
+        ],
+        [
+            KeyboardButton(text='Соц. сети класса 💬'),
+            KeyboardButton(text='Настройки ⚙️')
+        ],
+    ]
     if user and user.debug:
-        button5 = KeyboardButton('Команды дебага')
-        murkup.add(button5)
+        btns.append([KeyboardButton(text='Команды дебага')])
+    murkup = ReplyKeyboardMarkup(keyboard=btns, resize_keyboard=True)
+    logger.debug('Вызываю кнопки клавиатуры')
     return murkup
 
 
-def restart(database):
+async def restart(database):
     """
     Перезапускает бота и отправка оповещение каждому пользователю из файла кэша
     """
@@ -303,42 +304,40 @@ def restart(database):
                 );
                 '''
         )
+
         cursor.execute('SELECT * FROM users')
         # noinspection PyTypeChecker
         users = list(map(dict, cursor.fetchall()))
 
-        map(user_class, users)
         if users:
             for user in users:
-                murkup = ReplyKeyboardMarkup()
-                button1 = KeyboardButton('/start')
-                murkup.add(button1)
-                bot.send_message(
-                    user.get('userid'), 'Бот вновь запущен!\nДля лучшего опыта использования не будет лишним ввести команду /start',
-                    disable_notification=user.get('setting_notification'), reply_markup=murkup
-                    )
+                murkup = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text='/start')]])
+        await bot.send_message(
+                chat_id=user.get('userid'), text='Бот вновь запущен!\nДля лучшего опыта использования не будет лишним ввести команду /start',
+                disable_notification=user.get('setting_notification'), reply_markup=murkup
+        )
+
         logger.debug('Бот рестарт!')
 
 
 
 # СТАРТ!
-@bot.message_handler(commands=['start'])
-def start(message):
+@dp.message(F.text, Command("start"))
+@user_class.get_user()
+async def start(message: types.Message, user):
     logger.info(f'Бота запустили ({message.from_user.username})')
-    murkup = main_button(message=message)
-    user_class(db, message.from_user.username, message.from_user.id)
+    # user_class(db, message.from_user.username, message.from_user.id)
     with open('../Логирование.png', 'rb') as file:
-        bot.send_photo(
-                message.chat.id,
-                photo=file,
+        await message.answer_photo(
+                photo=BufferedInputFile(file.read(), filename='Логирование'),
                 caption='''Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д. Найдёте ошибки сообщите: @Lynx20wz)
                 \nP.S: Также должен сказать, что в целях отлова ошибок я веду логирование, то есть, я вижу какую функцию вы запустили и ваш никнейм в телеграм (на фото видно).''',
-                reply_markup=murkup
+                reply_markup=main_button(user)
         )
 
 
-@bot.message_handler(func=lambda message: message.text == 'Расписание 📅')
-def timetable(message):
+@dp.message(F.text == 'Расписание 📅')
+async def timetable(message):
     day_of_week = datetime.now().isoweekday()
     if day_of_week in [5, 6, 7]:
         name_of_day = ps.get_weekday(1)
@@ -355,29 +354,28 @@ def timetable(message):
     logger.info(f'Вызвано расписание ({message.from_user.username})')
     output += f'-------------------------------\nИтого:\nТетрадей: {output.count('тетрадь')}\nУчебников: {output.count('учебник')}'
     with open('D:\\System folder\\Pictures\\Расписание 8 класс.png', 'rb') as file:
-        bot.send_photo(message.chat.id, file, caption=output, parse_mode='Markdown')
+        await bot.send_photo(message.chat.id, BufferedInputFile(file.read(), filename='Расписание'), caption=output, parse_mode='Markdown')
 
 
-@bot.message_handler(func=lambda message: message.text == 'Домашнее задание 📓')
+@dp.message(F.text == 'Домашнее задание 📓')
 @user_class.get_user()
-def homework(message: Message, user: user_class) -> None:
+async def homework(message: Message, user: user_class) -> None:
     """
     Высылает текст домашнего задания в соответствии с настройками пользователя.
 
     :param message: Полученное сообщение.
     :param user: Объект пользователя.
     """
-    # bot.send_message(message.chat.id, 'Временно это функция не работает 😥(')
 
     logger.info(f'Вызвана домашка ({message.from_user.username})')
     link: bool = False
 
-    msg = bot.send_message(message.chat.id, 'Ожидайте... ⌛')
+    msg = message.answer('Ожидайте... ⌛')
     with sqlite3.connect(db.path) as db_con:
         cursor = db_con.cursor()
         result = cursor.execute('SELECT login, password FROM users WHERE username = ?', (user.username,)).fetchone()
         if all(value is None for value in result):
-            registration_user(message, user)
+            await registration_user(message, user)
             return
         else:
             login, password = result
@@ -390,8 +388,8 @@ def homework(message: Message, user: user_class) -> None:
             hk = ps.full_parse(login, password)
         except ValueError as e:
             logger.info('Произошла ошибка!')
-            bot.send_message(message.chat.id, text=f'{e}')
-            registration_user(message, user)
+            await message.answer(text=f'{e}')
+            await registration_user(message, user)
             return
         db.set_homework(user, hk)
         logger.info('Домашка была обновлена')
@@ -424,41 +422,39 @@ def homework(message: Message, user: user_class) -> None:
             if 'https://' in lesson[2]:
                 link = True
         output += f'-------------------------------\nВсего задано уроков: {len(one_day)}'
-    bot.delete_message(message.chat.id, msg.id)
+    await bot.delete_message(message.chat.id, msg.id)
     if link:
-        murkup = InlineKeyboardMarkup()
-        button1 = InlineKeyboardButton(text='Бот для решения ЦДЗ', url='https://t.me/CDZ_AnswersBot')
-        murkup.add(button1)
-        bot.send_message(message.chat.id, output, parse_mode="Markdown", reply_markup=murkup, disable_notification=user.setting_notification)
+        murkup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text='Бот для решения ЦДЗ', url='https://t.me/CDZ_AnswersBot')]])
+        await message.answer(output, parse_mode="Markdown", reply_markup=murkup, disable_notification=user.setting_notification)
     else:
-        bot.send_message(message.chat.id, output, parse_mode="Markdown", disable_notification=user.setting_notification)
+        await message.answer(output, parse_mode="Markdown", disable_notification=user.setting_notification)
 
 
-def registration_user(message, user):
-    bot.send_message(
+async def registration_user(message, user):
+    await message.answer(
             message.chat.id,
             'Для доступа к домашнему заданию нужно зарегистрироваться! Введите пожалуйста свой логин для входа в школьный портал (госуслуги)'
     )
-    bot.register_next_step_handler(message, get_password, user)
+    # dp.register_next_step_handler(message, get_password, user)
 
 
-def get_password(message, user):
+async def get_password(message, user):
     login = message.text
     if login and re.match(r'^[\w.-]+@[\w.-]+$', login):
-        bot.send_message(
+        await message.answer(
                 message.chat.id,
                 'Теперь введите свой пароль'
         )
-        bot.register_next_step_handler(message, end_registration, user, login)
+        # dp.register_next_step_handler(message, end_registration, user, login)
     else:
-        bot.send_message(
+        await message.answer(
                 message.chat.id,
                 'Некорректный логин. Пожалуйста, введите ваш логин снова.'
         )
-        registration_user(message, user)
+        await registration_user(message, user)
 
 
-def end_registration(message, user, login):
+async def end_registration(message, user, login):
     password = message.text
     # Здесь можно добавить логику для проверки логина и пароля
     # Например, сохранить их в базе данных или проверить их действительность
@@ -469,58 +465,62 @@ def end_registration(message, user, login):
                     UPDATE users SET login = ?, password = ? WHERE username = ?
                     ''', (login, password, user.username)
             )
-    bot.send_message(
+    await message.answer(
             message.chat.id,
             f'Спасибо, {user.username}, вы зарегистрированы! Ваш пароль сохранён.',
-            reply_markup=main_button(message)
+            reply_markup=main_button(user)
     )
 
 
-
-@bot.message_handler(func=lambda message: message.text == 'Соц. сети класса 💬')
-def social_networks(message):
-    murkup = InlineKeyboardMarkup()
-    button1 = InlineKeyboardButton('Оф. группа', 'https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg')
-    button2 = InlineKeyboardButton('Подполка', 'https://chat.whatsapp.com/GvkRfG5W5JoApXrnu4T9Yo')
-    murkup.add(button1, button2)
-    bot.send_message(
-        message.chat.id,
-            'Конечно! Держи:\n\nОфициальная группа в WhatsApp: https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg (создатель @Lynx20wz)\nПодпольная группа в WhatsApp: https://chat.whatsapp.com/GvkRfG5W5JoApXrnu4T9Yo (создатель @Juggernaut_45)\n\n Если ссылки не работают обратиться к @Lynx20wz)',
-        reply_markup=murkup
+@dp.message(F.text == 'Соц. сети класса 💬')
+async def social_networks(message):
+    murkup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text='Оф. группа', url='https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg'),
+                    InlineKeyboardButton(text='Подполка', url='https://chat.whatsapp.com/GvkRfG5W5JoApXrnu4T9Yo')
+                ],
+            ]
+    )
+    await message.answer(
+            text='Конечно! Держи:\n\nОфициальная группа в WhatsApp: https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg (создатель @Lynx20wz)\nПодпольная группа в WhatsApp: https://chat.whatsapp.com/GvkRfG5W5JoApXrnu4T9Yo (создатель @Juggernaut_45)\n\n Если ссылки не работают обратиться к @Lynx20wz)',
+            reply_markup=murkup
         )
 
 
 # Settings
 def make_setting_button(user):
-    murkup = ReplyKeyboardMarkup(resize_keyboard=True)
-    button1 = KeyboardButton('Назад')
-    button2 = KeyboardButton('Выдача на неделю' if user.setting_dw else 'Выдача на день')
-    button3 = KeyboardButton('Уведомления вкл.' if user.setting_notification else 'Уведомления выкл.')
-    murkup.add(button1, button2, button3)
-    return murkup
+    return ReplyKeyboardMarkup(
+            resize_keyboard=True, keyboard=[
+                [
+                    KeyboardButton(text='Выдача на неделю' if user.setting_dw else 'Выдача на день'),
+                    KeyboardButton(text='Уведомления вкл.' if user.setting_notification else 'Уведомления выкл.')
+                ],
+                [KeyboardButton(text='Назад')],
+            ]
+    )
 
 
-@bot.message_handler(func=lambda message: message.text == 'Настройки ⚙️')
+@dp.message(F.text == 'Настройки ⚙️')
 @user_class.get_user()
-def settings(message, user):
+async def settings(message: Message, user):
     logger.info(f'Вызваны настройки ({message.from_user.username})')
     murkup = make_setting_button(user)
-    bot.send_message(
-        message.chat.id,
-            '''
-    Настройки:\n\n*Выдача на день\\неделю:*\n\t1) *"Выдача на день":* будет высылаться домашнее задание только на завтра.
-    В пятницу, субботу и воскресенье будет высылаться домашнее задание на понедельник.\n\t
-    2) *"Выдача на неделю":* Будет высылаться домашнее задание на все оставшиеся дни недели.\n\n*Уведомления:*\n\t
-    1) *"Уведомления вкл.":* включает звук уведомлений для каждого сообщения.\n\t
-    2) *"Уведомления выкл.":* отключает звук уведомления для каждого сообщения.
-             ''',
+    await message.answer(
+            text='''
+Настройки:\n\n*Выдача на день\\неделю:*\n\t1) *"Выдача на день":* будет высылаться домашнее задание только на завтра.
+В пятницу, субботу и воскресенье будет высылаться домашнее задание на понедельник.\n\t
+2) *"Выдача на неделю":* Будет высылаться домашнее задание на все оставшиеся дни недели.\n\n*Уведомления:*\n\t
+1) *"Уведомления вкл.":* включает звук уведомлений для каждого сообщения.\n\t
+2) *"Уведомления выкл.":* отключает звук уведомления для каждого сообщения.
+        ''',
         reply_markup=murkup, parse_mode='Markdown', disable_notification=user.setting_notification
-        )
+    )
 
 
-@bot.message_handler(func=lambda message: message.text in ['Выдача на неделю', 'Выдача на день'])
+@dp.message(F.text.in_(['Выдача на неделю', 'Выдача на день']))
 @user_class.get_user()
-def change_delivery(message, user):
+async def change_delivery(message, user):
     if message.text == 'Выдача на неделю':
         user.setting_dw = False
     elif message.text == 'Выдача на день':
@@ -528,12 +528,12 @@ def change_delivery(message, user):
     murkup = make_setting_button(user)
     user.save_settings(db, setting_dw=user.setting_dw)
     logger.info(f'Изменены настройки выдачи ({message.from_user.username} - {user.setting_dw} ({user.data}))')
-    bot.send_message(message.chat.id, 'Настройки успешно изменены!', reply_markup=murkup, disable_notification=user.setting_notification)
+    await message.answer('Настройки успешно изменены!', reply_markup=murkup, disable_notification=user.setting_notification)
 
 
-@bot.message_handler(func=lambda message: message.text in ['Уведомления вкл.', 'Уведомления выкл.'])
+@dp.message(F.text.in_(['Уведомления вкл.', 'Уведомления выкл.']))
 @user_class.get_user()
-def change_notification(message, user):
+async def change_notification(message, user):
     if message.text == 'Уведомления вкл.':
         user.setting_notification = False
     elif message.text == 'Уведомления выкл.':
@@ -541,82 +541,41 @@ def change_notification(message, user):
     murkup = make_setting_button(user)
     user.save_settings(db, setting_notification=user.setting_notification)
     logger.info(f'Изменены настройки уведомлений ({message.from_user.username} - {user.setting_notification} ({user.data}))')
-    bot.send_message(message.chat.id, 'Настройки успешно изменены!', reply_markup=murkup, disable_notification=user.setting_notification)
+    await message.answer('Настройки успешно изменены!', reply_markup=murkup, disable_notification=user.setting_notification)
 
 
-@bot.message_handler(func=lambda message: message.text == 'Назад')
+@dp.message(F.text == 'Назад')
 @user_class.get_user()
-def exit_settings(message, user):
+async def exit_settings(message, user):
     logger.debug(f'{user.setting_dw} - {user.setting_notification}')
     logger.info(f'Вышел из настроек ({message.from_user.username})')
     user.save_settings(db, user.setting_dw, user.setting_notification, user.debug, True)
-    bot.send_message(message.chat.id, 'Главное меню', reply_markup=main_button(message=message), disable_notification=user.setting_notification)
+    await message.answer('Главное меню', reply_markup=main_button(user), disable_notification=user.setting_notification)
 
 
-# Debug
-@bot.message_handler(func=lambda message: message.text == 'Debug')
-@user_class.get_user()
-def developer(message, user):
-    if message.from_user.id == ADMIN_ID:
-        user.debug = True
-        user.save_settings(db, debug=user.debug, save_db=True)
-        bot.send_message(message.chat.id, f'Удачной разработки, {user.username}! 😉', reply_markup=main_button(message))
-        logger.warning(f'{user.username} получил роль разработчика!')
-    else:
-        bot.send_message(message.chat.id, 'Вы не являетесь разработчиком! 😑', reply_markup=main_button(message))
-        logger.warning(f'{user.username} пытался получить разработчика')
+# @dp.message(F.text)
+# @user_class.get_user()
+# async def unknown_command(message, user):
+#     logger.error(f'Вызвана несуществующая команда! ({message.from_user.username}):\n"{message.text}"')
+#     await message.answer(
+#             "Извините, нет такой команды. Пожалуйста, используйте доступные кнопки или команды.",
+#             disable_notification=user.setting_notification
+#         )
 
-
-def make_debug_button():
-    murkup = ReplyKeyboardMarkup(resize_keyboard=True)
-    button1 = KeyboardButton('Назад')
-    button2 = KeyboardButton('Запрос пользователя')
-    button3 = KeyboardButton('Выкл. дебаг')
-    murkup.add(button1, button2, button3)
-    return murkup
-
-
-@bot.message_handler(func=lambda message: message.text == 'Команды дебага')
-def command_debug(message):
-    bot.send_message(message.chat.id, f'Добро пожаловать разработчик, тут все нужные для тебя команды!', reply_markup=make_debug_button())
-
-
-@bot.message_handler(func=lambda message: message.text == 'Запрос пользователя')
-def get_user(message):
-    bot.send_message(message.chat.id, f'{db.get_user(message.from_user.username)}')
-
-
-@bot.message_handler(func=lambda message: message.text == 'Выкл. дебаг')
-@user_class.get_user()
-def remove_debug(message, user):
-    user.debug = False
-    user.save_settings(debug=user.debug, save_db=True, database=db)
-    bot.send_message(message.chat.id, f'Выключаю дебаг...', reply_markup=main_button(message))
-    logger.debug(f'{user.username} отключил роль разработчика.')
-
-
-@bot.message_handler(func=lambda message: message.text == 'Назад')
-@user_class.get_user()
-def exit_settings(message, user):
-    logger.debug(f'{user.setting_dw} - {user.setting_notification}')
-    logger.info(f'Вышел из команд дебага ({message.from_user.username})')
-    bot.send_message(message.chat.id, 'Главное меню', reply_markup=main_button(message=message), disable_notification=user.setting_notification)
-
-@bot.message_handler(func=lambda message: message.text)
-@user_class.get_user()
-def unknown_command(message, user):
-    logger.error(f'Вызвана несуществующая команда! ({message.from_user.username}):\n"{message.text}"')
-    bot.send_message(
-            message.chat.id, "Извините, нет такой команды. Пожалуйста, используйте доступные кнопки или команды.",
-            disable_notification=user.setting_notification
-        )
-
-
+async def main():
+    from debug_handlers import debug_router
+    debug_router.message.filter(F.chat.id == ADMIN_ID)
+    dp.include_router(debug_router)
+    await bot.delete_webhook(drop_pending_updates=True)
+    await restart(database=db)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.close()
 
 # Запуск бота
+db = BaseDate(DB_PATH)
 if __name__ == '__main__':
-    db = BaseDate(DB_PATH)
     with open('../schedule.json', 'r', encoding='utf-8') as file:
         timetable_dict = json.load(file)
-    restart(database=db)
-    bot.polling(none_stop=True)
+    asyncio.run(main())
