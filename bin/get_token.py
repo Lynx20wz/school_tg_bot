@@ -1,8 +1,6 @@
 import os
-import sys
 import time
 
-from dotenv import load_dotenv
 from loguru import logger
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -10,15 +8,6 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
-
-load_dotenv()
-
-logger.remove()
-logger.add(
-        sink=sys.stdout,
-        level='DEBUG',
-        format='{time:H:mm:ss} | <level>{level}</level> | {message}',
-)
 
 
 def get_token(login, password):

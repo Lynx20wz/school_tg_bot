@@ -1,22 +1,13 @@
 import json
 import os
-import sys
 from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import Union
 
 import requests
 from dotenv import load_dotenv
-from loguru import logger
 
-from get_token import get_token
-
-logger.remove()
-logger.add(
-        sink=sys.stdout,
-        level='DEBUG',
-        format='{time:H:mm:ss}:{line}| <level>{level}</level> | {message}',
-)
+from bin import logger
 
 load_dotenv()
 
@@ -42,11 +33,10 @@ class lesson_class:
         return self.name, self.day, self.cabinet_number, self.homework
 
 
-def get_homework_from_website(login: str, password: str, date: datetime = datetime.now()) -> dict:
+def get_homework_from_website(login: str, date: datetime = datetime.now()) -> dict:
     """
     Парсит данные со школьного портала и заносит их в файл в формате json.
     :param login: логин для парсинга с госулслуг
-    :param password: login для парсинга с госулслуг
     :param date: текущая дата
     :return: Json-файл с домашним заданием.
     """
@@ -57,13 +47,7 @@ def get_homework_from_website(login: str, password: str, date: datetime = dateti
 
     logger.info(f'{begin_date} - {end_date}')
 
-    #
-    # with open('../temp/cache_school_bot.json', 'r', encoding='utf-8') as cache_file:
-    #     cookies: dict = json.loads(cache_file.read())
-    #     try:
-    #         cookies = cookies.get('cache').get('cookies')
-    #     except KeyError:
-    #         cookies = get_token()
+
 
     def req(cookie):
         headers = {
@@ -100,16 +84,17 @@ def get_homework_from_website(login: str, password: str, date: datetime = dateti
                 headers=headers,
         )
 
-    cookies = get_token(login, password)
-    response = req(cookies)
-    if response.status_code > 400:
-        logger.debug(response.text)
-        raise ValueError('Пароль или логин неверный!')
-
-    with open('../temp/school.json', 'w', encoding='utf-8') as file:
-        json.dump(response.json(), file, indent=4)
-
-    return cookies
+    # if req(cookie)
+    # cookies = get_token(login, password)
+    # response = req(cookies)
+    # if response.status_code > 400:
+    #     logger.debug(response.text)
+    #     raise ValueError('Пароль или логин неверный!')
+    #
+    # with open('../temp/school.json', 'w', encoding='utf-8') as file:
+    #     json.dump(response.json(), file, indent=4)
+    #
+    # return cookies
 
 
 def get_links_in_lesson(response: dict, cookies: dict) -> dict:
@@ -237,15 +222,14 @@ def homework_output(dict_hk: dict = None, need_output: bool = False) -> Union[di
         return return_output
 
 
-def full_parse(login, password, date: datetime = datetime.now()) -> dict:
+def full_parse(login, date: datetime = datetime.now()) -> dict:
     """
     Функция для полного анализа расписания.
 
     :param login: логин для парсинга с госулслуг
-    :param password: login для парсинга с госулслуг
     :param date: Дата, для которой нужно произвести анализ. По умолчанию - сегодняшняя дата.
     """
-    cookies = get_homework_from_website(login, password, date)
+    cookies = get_homework_from_website(login, date)
     with open('../temp/school.json', 'r', encoding='utf-8') as file:
         response = json.loads(file.read())
     # get_links_in_lesson(response, cookies)

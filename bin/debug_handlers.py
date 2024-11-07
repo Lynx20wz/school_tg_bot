@@ -1,26 +1,12 @@
 from aiogram import Router, F
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
-from main import user_class, db, main_button, log_format
+from KeyBoards import main_button
+from bin import UserClass, db
 
 debug_router = Router()
 
-import sys
 from loguru import logger
-
-logger.remove()
-logger.add(
-        sink=sys.stdout,
-        level='DEBUG',
-        format=log_format,
-)
-logger.add(
-        sink='..//temp//log.log',
-        level='INFO',
-        mode='a',
-        format=log_format,
-)
-
 
 def make_debug_button():
     return ReplyKeyboardMarkup(
@@ -34,8 +20,8 @@ def make_debug_button():
     )
 
 
-@debug_router.message(F.text == 'Debug')
-@user_class.get_user()
+@debug_router.message(F.text.lower() == 'debug')
+@UserClass.get_user()
 async def developer(message, user):
     user.debug = True
     user.save_settings(db, debug=user.debug, save_db=True)
@@ -50,11 +36,11 @@ async def command_debug(message):
 
 @debug_router.message(F.text == 'Запрос пользователя')
 async def get_user(message):
-    await message.answer(f'{db.get_user(message.from_user.username)}')
+    await message.answer(f'{db(message.from_user.username)}')
 
 
 @debug_router.message(F.text == 'В главное меню')
-@user_class.get_user()
+@UserClass.get_user()
 async def exit_debug_commands(message, user):
     logger.debug(f'{user.setting_dw} - {user.setting_notification}')
     logger.info(f'Вышел из команд дебага ({message.from_user.username})')
@@ -62,7 +48,7 @@ async def exit_debug_commands(message, user):
 
 
 @debug_router.message(F.text == 'Выкл. дебаг')
-@user_class.get_user()
+@UserClass.get_user()
 async def remove_debug(message, user):
     user.debug = False
     user.save_settings(debug=user.debug, save_db=True, database=db)
