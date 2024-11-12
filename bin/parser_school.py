@@ -31,8 +31,10 @@ def get_homework_from_website(token: str, student_id: int, date: datetime = date
     :return: Json-файл с домашним заданием.
     """
     date_in_str = datetime(datetime.now().year, date.month, date.day)
+
     day = date_in_str.isoweekday()
     monday = date_in_str + timedelta(days=(1 - day)) if (1 - day) > -4 else date_in_str + timedelta(days=(8 - day))
+
     begin_date = monday.strftime('%Y-%m-%d')
     end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
 
