@@ -162,3 +162,6 @@ temp/log.log
 temp/school.json
 Расписание.xlsx
 temp/cache_school_bot.json
+temp/DataBase.db
+bin/encryption_functions.py
+token
