@@ -41,12 +41,10 @@ def get_token(login, password):
         logger.debug('Захожу на школьный портал')
         time.sleep(1)
         cookies = driver.get_cookies()
+        return {cookie['name']: cookie['value'] for cookie in cookies}
 
-    except:
-        return 'Что-то не так!'
     finally:
         driver.quit()
-        return {cookie['name']: cookie['value'] for cookie in cookies}
 
 
 if __name__ == '__main__':

@@ -2,15 +2,14 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 
-from aiogram import Dispatcher, Bot, F, types
+from aiogram import Dispatcher, Bot, F
 from aiogram.filters.command import Command
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile
 
 import parser_school as ps
-from KeyBoards import main_button, make_setting_button
-from bin import BD_PATH, ADMIN_ID, API_BOT, logger, BaseDate, UserClass
-from debug_handlers import debug_router
-from registration import auth_router
+from bin import UserClass, API_BOT, logger, db, main_button, social_networks_button, make_setting_button
+from filters.is_admin import IsAdmin
+from handlers import *
 
 bot = Bot(API_BOT)
 dp = Dispatcher()
@@ -18,29 +17,31 @@ dp = Dispatcher()
 
 async def restart():
     """
-    Перезапускает бота и отправка оповещение каждому пользователю из файла кэша
+    Перезапускает бота и создаёт всех пользователей из БД
     """
     users = await db.restart_bot()
-    # if users:
-    #     for user in users:
-    #         murkup = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text='/start')]])
-    # await bot.send_message(
-    #         chat_id=user.get('userid'), text='Бот вновь запущен!\nДля лучшего опыта использования не будет лишним ввести команду /start',
-    #         disable_notification=user.get('setting_notification'), reply_markup=murkup
-    # )
-
+    for user in users:
+        UserClass(
+                user.get('username'),
+                user.get('userid'),
+                bool(user.get('debug')),
+                bool(user.get('setting_dw')),
+                bool(user.get('setting_notification')),
+                user.get('homework_id'),
+        )
     logger.debug('Бот рестарт!')
+
 
 # СТАРТ!
 @dp.message(F.text, Command("start"))
 @UserClass.get_user()
-async def start(message: types.Message, user, **kwargs):
+async def start(message: Message, user):
     logger.info(f'Бота запустили ({message.from_user.username})')
     with open('../Логирование.png', 'rb') as file:
         await message.answer_photo(
                 photo=BufferedInputFile(file.read(), filename='Логирование'),
                 caption='''Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д. Найдёте ошибки сообщите: @Lynx20wz)
-            \nP.S: Также должен сказать, что в целях отлова ошибок я веду логирование, то есть, я вижу какую функцию вы запустили и ваш никнейм в телеграм (на фото видно).''',
+                \nP.S: Также должен сказать, что в целях отлова ошибок я веду логирование, то есть, я вижу какую функцию вы запустили и ваш никнейм в телеграм (на фото видно).''',
                 reply_markup=main_button(user)
         )
 
@@ -59,15 +60,16 @@ async def timetable(message):
         lesson_subjects = ', '.join(lesson_subject)
         if lesson_subjects == '':
             lesson_subjects = 'Предметы не нужны!'
-        output += f'{i}) {lesson[0]} ({lesson[1]}) - {lesson_subjects}\n'
+        output += f'{i}) {lesson[0]} - {lesson_subjects}\n'
     logger.info(f'Вызвано расписание ({message.from_user.username})')
     output += f'-------------------------------\nИтого:\nТетрадей: {output.count('тетрадь')}\nУчебников: {output.count('учебник')}'
     with open('D:\\System folder\\Pictures\\Расписание 8 класс.png', 'rb') as file:
         await bot.send_photo(message.chat.id, BufferedInputFile(file.read(), filename='Расписание'), caption=output, parse_mode='Markdown')
 
+
 @dp.message(F.text == 'Домашнее задание 📓')
 @UserClass.get_user()
-async def homework(message: Message, user: UserClass, **kwargs) -> None:
+async def homework(message: Message, user: UserClass) -> None:
     """
     Высылает текст домашнего задания в соответствии с настройками пользователя.
 
@@ -78,30 +80,29 @@ async def homework(message: Message, user: UserClass, **kwargs) -> None:
     logger.info(f'Вызвана домашка ({message.from_user.username})')
     link: bool = False
 
+    # Получаем токен
     msg = await message.answer('Ожидайте... ⌛')
-    result = await db.get_login(user.username)
-    if not result:
-        await msg.edit_text('Чтобы получить данные о домaшнем задании, нужно зарегистрироваться. Чтобы пройти регистрацию введите: /reg')
+    result = await db.get_token(user.username)
+    if result is None:
+        await msg.edit_text('У вас отсутствует токен, пожалуйста введите команду /token, чтобы получить его!')
         return
     else:
-        login = result
+        token = result
 
+    # Получаем домашку
     pre_hk = await db.get_homework(user.username)
-    if pre_hk is not None and datetime.now() - pre_hk[0] < timedelta(hours=1):
+    if pre_hk is not None and (datetime.now() - pre_hk[0]) < timedelta(hours=1):
         hk = json.loads(pre_hk[1])
-    elif pre_hk is not None:
+    else:
         try:
-            hk = ps.full_parse(login)
+            hk = ps.full_parse(token=token, student_id=user.student_id, parsing=True)
+            await db.update_homework_cache(user.username, homework=hk)
+            logger.info('Домашка была обновлена')
         except ValueError as e:
             logger.warning(f'Произошла ошибка при получении дз: {e}')
-            await msg.edit_text('Данные для входа в госуслуги неверные! Повторите регистрацию с помощью /reg')
             return
-        await db.update_homework_cache(user.username, hk)
-        logger.info('Домашка была обновлена')
-    else:
-        await msg.edit_text('Данные для входа в госуслуги неверные! Повторите регистрацию с помощью /reg')
-        return
 
+    # Анализируем домашку
     output = ''
     if user.setting_dw:  # Если setting_dw равен True, выводим на всю неделю
         for i, one_day in enumerate(hk.values(), start=1):
@@ -124,7 +125,7 @@ async def homework(message: Message, user: UserClass, **kwargs) -> None:
         output += f'\n*{day_of_week}*:\n'
         one_day = hk.get(day_of_week)
 
-        logger.debug(f'{next_day_index} - {today_index}) {one_day}')
+        # logger.debug(f'{next_day_index} - {today_index}) {one_day}')
         for number_lesson, lesson in enumerate(one_day, start=1):
             output += f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
             if 'https://' in lesson[2]:
@@ -132,31 +133,24 @@ async def homework(message: Message, user: UserClass, **kwargs) -> None:
         output += f'-------------------------------\nВсего задано уроков: {len(one_day)}'
     await bot.delete_message(message.chat.id, msg.message_id)
     if link:
-        murkup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text='Бот для решения ЦДЗ', url='https://t.me/CDZ_AnswersBot')]])
+        murkup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text='Бот для решения ЦДЗ', url='https://t.me/solving_CDZ_tests_bot')]])
         await message.answer(output, parse_mode="Markdown", reply_markup=murkup, disable_notification=user.setting_notification)
     else:
         await message.answer(output, parse_mode="Markdown", disable_notification=user.setting_notification)
 
+
 @dp.message(F.text == 'Соц. сети класса 💬')
 async def social_networks(message):
-    murkup = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(text='Оф. группа', url='https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg'),
-                    InlineKeyboardButton(text='Подполка', url='https://chat.whatsapp.com/GvkRfG5W5JoApXrnu4T9Yo')
-                ],
-            ]
-    )
     await message.answer(
             text='Конечно! Держи:\n\nОфициальная группа в WhatsApp: https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg (создатель @Lynx20wz)\nПодпольная группа в WhatsApp: https://chat.whatsapp.com/GvkRfG5W5JoApXrnu4T9Yo (создатель @Juggernaut_45)\n\n Если ссылки не работают обратиться к @Lynx20wz)',
-            reply_markup=murkup
-        )
+            reply_markup=social_networks_button()
+    )
 
 
 # Settings
 @dp.message(F.text == 'Настройки ⚙️')
 @UserClass.get_user()
-async def settings(message: Message, user, **kwargs):
+async def settings(message: Message, user):
     logger.info(f'Вызваны настройки ({message.from_user.username})')
     murkup = make_setting_button(user)
     await message.answer(
@@ -167,48 +161,54 @@ async def settings(message: Message, user, **kwargs):
 1) *"Уведомления вкл.":* включает звук уведомлений для каждого сообщения.\n\t
 2) *"Уведомления выкл.":* отключает звук уведомления для каждого сообщения.
         ''',
-        reply_markup=murkup, parse_mode='Markdown', disable_notification=user.setting_notification
+            reply_markup=murkup, parse_mode='Markdown', disable_notification=user.setting_notification
     )
 
 
 @dp.message(F.text.in_(['Выдача на неделю', 'Выдача на день']))
 @UserClass.get_user()
-async def change_delivery(message, user, **kwargs):
+async def change_delivery(message, user):
     if message.text == 'Выдача на неделю':
         user.setting_dw = False
     elif message.text == 'Выдача на день':
         user.setting_dw = True
     murkup = make_setting_button(user)
-    user.save_settings(db, setting_dw=user.setting_dw)
+    await user.save_settings(setting_dw=user.setting_dw)
     logger.info(f'Изменены настройки выдачи ({message.from_user.username} - {user.setting_dw} ({user.data}))')
     await message.answer('Настройки успешно изменены!', reply_markup=murkup, disable_notification=user.setting_notification)
 
 
 @dp.message(F.text.in_(['Уведомления вкл.', 'Уведомления выкл.']))
 @UserClass.get_user()
-async def change_notification(message, user, **kwargs):
+async def change_notification(message, user):
     if message.text == 'Уведомления вкл.':
         user.setting_notification = False
     elif message.text == 'Уведомления выкл.':
         user.setting_notification = True
     murkup = make_setting_button(user)
-    user.save_settings(db, setting_notification=user.setting_notification)
+    user.save_settings(setting_notification=user.setting_notification)
     logger.info(f'Изменены настройки уведомлений ({message.from_user.username} - {user.setting_notification} ({user.data}))')
     await message.answer('Настройки успешно изменены!', reply_markup=murkup, disable_notification=user.setting_notification)
 
 
 @dp.message(F.text == 'Назад')
 @UserClass.get_user()
-async def exit_settings(message, user, **kwargs):
-    logger.debug(f'{user.setting_dw} - {user.setting_notification}')
+async def exit_settings(message, user):
     logger.info(f'Вышел из настроек ({message.from_user.username})')
-    user.save_settings(db, user.setting_dw, user.setting_notification, user.debug, True)
+    await user.save_settings(setting_dw=user.setting_dw, setting_notification=user.setting_notification, debug=user.debug, save_db=True)
     await message.answer('Главное меню', reply_markup=main_button(user), disable_notification=user.setting_notification)
 
 
+# полное удаления пользователя
+@dp.message(F.text == 'Удалить аккаунт')
+@UserClass.get_user()
+async def delete_user(message, user):
+    await db.delete_user(user.username)
+    await message.answer('Аккаунт успешно удален!')
+
 async def main():
-    debug_router.message.filter(F.chat.id == ADMIN_ID)
-    dp.include_routers(debug_router, auth_router)
+    dp.include_routers(debug_router, auth_router, unknown_router)
+    debug_router.message.filter(IsAdmin())
     await bot.delete_webhook(drop_pending_updates=True)
     await restart()
     try:
@@ -217,18 +217,8 @@ async def main():
         await bot.close()
 
 
-# @dp.message(F.text)
-# @UserClass.get_user()
-# async def unknown_command(message, user):
-#     logger.error(f'Вызвана несуществующая команда! ({message.from_user.username}):\n"{message.text}"')
-#     await message.answer(
-#             "Извините, нет такой команды. Пожалуйста, используйте доступные кнопки или команды.",
-#             disable_notification=user.setting_notification
-#         )
-
 # Запуск бота
 if __name__ == '__main__':
-    db = BaseDate(BD_PATH)
     with open('../schedule.json', 'r', encoding='utf-8') as file:
         timetable_dict = json.load(file)
     asyncio.run(main())
