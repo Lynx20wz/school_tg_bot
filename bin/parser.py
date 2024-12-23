@@ -108,6 +108,37 @@ def get_student_id(token: str) -> int:
     return response[0]['id']
 
 
+def get_person_id(token: str) -> str:
+    headers = {
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Authorization': 'Bearer ' + token,
+        'Connection': 'keep-alive',
+        'Content-Type': 'application/json;charset=UTF-8',
+        'DNT': '1',
+        'Referer': 'https://authedu.mosreg.ru/diary/schedules/schedule',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'X-Mes-Role': 'student',
+        'X-mes-subsystem': 'familyweb',
+        'sec-ch-ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+    }
+
+    json_data = {'auth_token': token}
+
+    response = requests.post(
+            'https://authedu.mosreg.ru/api/ej/acl/v1/sessions',
+            headers=headers,
+            json=json_data,
+    ).json()
+
+    return response['person_id']
+
+
 def get_marks(student_id: int, token: str, date: datetime = datetime.now()) -> dict:
     """
     :param student_id: id ученика
@@ -164,29 +195,53 @@ def get_marks(student_id: int, token: str, date: datetime = datetime.now()) -> d
     return response
 
 
-def get_schedule(token: str) -> dict:
+def get_schedule(token: str) -> tuple[str, dict]:
     """
     :param token: токен авторизации для "Моя школа"
     :return: расписание для ученика
     """
 
+    person_id = get_person_id(token)
+
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-        'Content-Type': 'application/json',
         'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-        'Accept-Encoding': 'zip, deflate, br',
+        'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Authorization': 'Bearer ' + token,
         'Connection': 'keep-alive',
-        'Auth-Token': token,
-        'Authorization': token
+        'Content-Type': 'application/json;charset=UTF-8',
+        'DNT': '1',
+        'Referer': 'https://authedu.mosreg.ru/diary/schedules/schedule',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'X-Mes-Role': 'student',
+        'X-mes-subsystem': 'familyweb',
+        'sec-ch-ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+    }
+
+    today = datetime.now().isoweekday()
+    if today in [5, 6, 7]:
+        schedule_day = 7 - today + 1
+        date = (datetime.now() + timedelta(days=schedule_day)).strftime('%Y-%m-%d')
+    else:
+        schedule_day = today + 1
+        date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+
+    params = {
+        'person_ids': person_id,
+        'begin_date': date,
+        'end_date': date,
     }
 
     response = requests.get(
-            'https://myschool.mosreg.ru/acl/api/schedule',
+            'https://authedu.mosreg.ru/api/eventcalendar/v1/api/events',
             headers=headers,
+            params=params
     ).json()
-    logger.debug(response)
-    return response
+    return get_weekday(schedule_day), response
 
 def get_links_in_lesson(response: dict) -> dict:
     """

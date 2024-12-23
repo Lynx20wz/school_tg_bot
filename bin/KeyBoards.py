@@ -4,7 +4,7 @@ from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardMar
 def main_button(user):
     buttons = [
         [
-            # KeyboardButton(text='Расписание 📅'),
+            KeyboardButton(text='Расписание 📅'),
             KeyboardButton(text='Оценки 📝'),
             KeyboardButton(text='Домашнее задание 📓')
         ],
