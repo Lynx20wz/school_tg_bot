@@ -1,3 +1,5 @@
+__all__ = ('main_button', 'make_setting_button', 'token_button', 'make_debug_button', 'social_networks_button', 'username_button')
+
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
 
@@ -73,6 +75,3 @@ def username_button():
                 ],
             ]
     )
-
-
-__all__ = ['main_button', 'make_setting_button', 'token_button', 'make_debug_button', 'social_networks_button', 'username_button']

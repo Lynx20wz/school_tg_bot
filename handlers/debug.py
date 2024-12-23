@@ -2,10 +2,9 @@ import json
 
 from aiogram import Router, F
 from aiogram.filters import Command
+from loguru import logger
 
 from bin import UserClass, db, main_button, make_debug_button
-
-from loguru import logger
 
 debug_router = Router()
 
@@ -78,12 +77,6 @@ async def sql_request(message, command):
             await message.answer(json.dumps(user_data, indent=4, ensure_ascii=False))
     else:
         await get_user(message)
-
-
-# проверка логирования
-@debug_router.message(F.text, Command('log'))
-async def check_log(message):
-    msg.answer('Тест логирования!')
 
 
 @debug_router.message(F.text == 'Выкл. дебаг')

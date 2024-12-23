@@ -243,6 +243,7 @@ def get_schedule(token: str) -> tuple[str, dict]:
     ).json()
     return get_weekday(schedule_day), response
 
+
 def get_links_in_lesson(response: dict) -> dict:
     """
     :param response: словарь который содержит в себе домашнее задание

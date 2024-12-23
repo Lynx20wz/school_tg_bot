@@ -2,9 +2,9 @@ from aiogram import Router
 from aiogram.filters import StateFilter, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from bin.parser import get_student_id
 
 from bin import UserClass, db, token_button, main_button
+from bin.parser import get_student_id
 
 auth_router = Router()
 

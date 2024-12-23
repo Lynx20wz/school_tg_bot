@@ -1,9 +1,9 @@
 import json
 from datetime import datetime
-from types import NoneType
 from typing import Optional, Union
 
 import aiosqlite
+
 from bin.config import BD_PATH, logger
 
 
@@ -150,5 +150,3 @@ class BaseDate:
 
 
 db = BaseDate(BD_PATH)
-
-__all__ = ['db', 'BaseDate']

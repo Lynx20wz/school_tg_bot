@@ -1,7 +1,8 @@
-import logging
+__all__ = ('BD_PATH', 'API_BOT', 'ADMIN_IDS', 'logger')
+
+from sys import stdout, exit
 
 from environs import *
-from sys import stdout, _getframe, exit
 from loguru import logger
 
 env = Env()
@@ -18,21 +19,6 @@ except EnvError as e:
 
 log_format = '{time:H:mm:ss} | "{function}" | {line} ({module}) | <level>{level}</level> | {message}'
 
-# class InterceptHandler(logging.Handler):
-#     def emit(self, record):
-#         try:
-#             level = logger.level(record.levelname).name
-#         except ValueError:
-#             level = record.levelno
-#
-#         frame, depth = _getframe(6), 6
-#         while frame and frame.f_code.co_filename == logging.__file__:
-#             frame = frame.f_back
-#             depth += 1
-#
-#         logger.opt(depth=depth, exception=record.exc_info, colors=True).log(level, record.getMessage())
-
-# logging.basicConfig(handlers=[InterceptHandler()], level=20, force=True)
 logger.remove()
 logger.add(
         sink=stdout,
@@ -48,5 +34,3 @@ logger.add(
         level='INFO',
         mode='w',
 )
-
-__all__ = ['BD_PATH', 'API_BOT', 'ADMIN_IDS', 'logger']
