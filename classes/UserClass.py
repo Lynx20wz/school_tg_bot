@@ -108,6 +108,7 @@ class UserClass:
                                         user_db.get('setting_dw', True),
                                         user_db.get('setting_notification', True),
                                         user_db.get('token'),
+                                        user_db.get('student_id'),
                                         user_db.get('homework'),
                                 )
                             except AttributeError:
@@ -157,3 +158,6 @@ class UserClass:
         if save_db:
             asyncio.create_task(db.update_user(self))
             logger.info(f'Новые настройки пользователя {self.username} сохранены!')
+
+    def check_token(self) -> bool:
+        return self.token is not None and self.student_id is not None

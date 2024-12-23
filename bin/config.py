@@ -11,7 +11,7 @@ env.read_env()
 try:
     BD_PATH = env.str('BD_PATH')
     API_BOT = env.str('API_BOT')
-    ADMIN_IDS = list(map(int, env.list('ADMIN_IDS')))
+    ADMIN_IDS = env.list('ADMIN_IDS', subcast=int)
 except EnvError as e:
     logger.exception(f'Переменные окружения не заданы: {e}')
     exit()

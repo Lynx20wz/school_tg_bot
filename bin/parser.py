@@ -1,7 +1,6 @@
 import json
 from datetime import datetime, timedelta
 from typing import Union
-from bin import db
 
 import requests
 
@@ -85,7 +84,11 @@ def get_homework_from_website(token: str, student_id: int, date: datetime = date
     return response.json()
 
 
-def get_student_id(token: str) -> str:
+def get_student_id(token: str) -> int:
+    """
+    :param token: токен авторизации для "Моя школа"
+    :return: student_id с "Моя школа"
+    """
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
         'Content-Type': 'application/json',
@@ -104,6 +107,86 @@ def get_student_id(token: str) -> str:
     logger.debug(response)
     return response[0]['id']
 
+
+def get_marks(student_id: int, token: str, date: datetime = datetime.now()) -> dict:
+    """
+    :param student_id: id ученика
+    :param date: текущая дата
+    :param token: токен авторизации для "Моя школа"
+    :return: оценки ученика
+    """
+
+    date_in_str = datetime(datetime.now().year, date.month, date.day)
+
+    day = date_in_str.isoweekday()
+    monday = date_in_str + timedelta(days=(1 - day) - 7) if (1 - day) > -4 else date_in_str + timedelta(days=(8 - day) - 7)
+
+    begin_date = monday.strftime('%Y-%m-%d')
+    end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
+
+    logger.debug(f'{begin_date} - {end_date}')
+
+    cookie = {'aupd_token': token}
+
+    headers = {
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Authorization': 'Bearer ' + token,
+        'Connection': 'keep-alive',
+        'Content-Type': 'application/json;charset=UTF-8',
+        'DNT': '1',
+        'Referer': 'https://authedu.mosreg.ru/diary/marks/current-marks/',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'X-Mes-Role': 'student',
+        'X-mes-subsystem': 'familyweb',
+        'sec-ch-ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+    }
+
+    params = {
+        'from': begin_date,
+        'to': end_date,
+        'student_id': student_id,
+    }
+
+    response = requests.get(
+            'https://authedu.mosreg.ru/api/family/web/v1/marks',
+            params=params,
+            cookies=cookie,
+            headers=headers
+    ).json()
+
+    logger.debug(response)
+    return response
+
+
+def get_schedule(token: str) -> dict:
+    """
+    :param token: токен авторизации для "Моя школа"
+    :return: расписание для ученика
+    """
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
+        'Accept-Encoding': 'zip, deflate, br',
+        'Connection': 'keep-alive',
+        'Auth-Token': token,
+        'Authorization': token
+    }
+
+    response = requests.get(
+            'https://myschool.mosreg.ru/acl/api/schedule',
+            headers=headers,
+    ).json()
+    logger.debug(response)
+    return response
 
 def get_links_in_lesson(response: dict) -> dict:
     """
