@@ -4,8 +4,15 @@ from typing import Union
 
 import requests
 
-from config import logger
+from bin import logger, NoHomeworkError
 
+
+def get_work_week_date(date: datetime) -> tuple[str, str]:
+    today = date.isoweekday()
+    monday = date + timedelta(days=(today + (7 - today + 1) // 7))
+    begin_date = monday.strftime('%Y-%m-%d')
+    end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
+    return begin_date, end_date
 
 def get_weekday(number: int = None) -> Union[str, list[str]]:
     weekdays = {1: 'Понедельник',
@@ -29,13 +36,7 @@ def get_homework_from_website(token: str, student_id: int, date: datetime = date
     :param date: текущая дата
     :return: Json-файл с домашним заданием.
     """
-    date_in_str = datetime(datetime.now().year, date.month, date.day)
-
-    day = date_in_str.isoweekday()
-    monday = date_in_str + timedelta(days=(1 - day)) if (1 - day) > -4 else date_in_str + timedelta(days=(8 - day))
-
-    begin_date = monday.strftime('%Y-%m-%d')
-    end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
+    begin_date, end_date = get_work_week_date(date)
 
     logger.info(f'{begin_date} - {end_date}')
 
@@ -81,7 +82,13 @@ def get_homework_from_website(token: str, student_id: int, date: datetime = date
     with open('../temp/school.json', 'w', encoding='utf-8') as file:
         json.dump(response.json(), file, indent=4, ensure_ascii=False)
 
-    return response.json()
+    try:
+        hk = response.json()['payload']
+        if not hk:
+            raise NoHomeworkError('Домашнее задание не задано', begin_date, end_date)
+        return hk
+    except (KeyError, requests.exceptions.JSONDecodeError):
+        raise NoHomeworkError('Не удалось получить домашнее задание', begin_date, end_date)
 
 
 def get_student_id(token: str) -> int:
@@ -147,13 +154,7 @@ def get_marks(student_id: int, token: str, date: datetime = datetime.now()) -> d
     :return: оценки ученика
     """
 
-    date_in_str = datetime(datetime.now().year, date.month, date.day)
-
-    day = date_in_str.isoweekday()
-    monday = date_in_str + timedelta(days=(1 - day) - 7) if (1 - day) > -4 else date_in_str + timedelta(days=(8 - day) - 7)
-
-    begin_date = monday.strftime('%Y-%m-%d')
-    end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
+    begin_date, end_date = get_work_week_date(date)
 
     logger.debug(f'{begin_date} - {end_date}')
 
@@ -195,9 +196,10 @@ def get_marks(student_id: int, token: str, date: datetime = datetime.now()) -> d
     return response
 
 
-def get_schedule(token: str) -> tuple[str, dict]:
+def get_schedule(token: str, input_date: str | None = None) -> tuple[str, dict]:
     """
     :param token: токен авторизации для "Моя школа"
+    :param input_date: дата для расписания
     :return: расписание для ученика
     """
 
@@ -222,18 +224,26 @@ def get_schedule(token: str) -> tuple[str, dict]:
         'sec-ch-ua-platform': '"Windows"',
     }
 
-    today = datetime.now().isoweekday()
-    if today in [5, 6, 7]:
-        schedule_day = 7 - today + 1
-        date = (datetime.now() + timedelta(days=schedule_day)).strftime('%Y-%m-%d')
+    if input_date is None:
+        date = datetime.now()
+
+        today = date.isoweekday()
+        if today in [5, 6, 7]:
+            schedule_day = (today + (7 - today + 1)) // 7
+            date_request = (date + timedelta(days=schedule_day)).strftime('%Y-%m-%d')
+        else:
+            schedule_day = today + 1
+            date_request = (date + timedelta(days=1)).strftime('%Y-%m-%d')
     else:
-        schedule_day = today + 1
-        date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+        date_in_str = datetime.strptime(input_date, '%m-%d')
+        date = datetime(datetime.now().year, date_in_str.month, date_in_str.day)
+        date_request = date.strftime('%Y-%m-%d')
+        schedule_day = date.isoweekday()
 
     params = {
         'person_ids': person_id,
-        'begin_date': date,
-        'end_date': date,
+        'begin_date': date_request,
+        'end_date': date_request,
     }
 
     response = requests.get(

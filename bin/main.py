@@ -3,11 +3,13 @@ import json
 from datetime import datetime, timedelta
 
 from aiogram import Bot, F, Dispatcher
-from aiogram.filters.command import Command
+from aiogram.filters import Command, CommandObject
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile
 
 import parser as ps
-from bin import UserClass, API_BOT, logger, db, main_button, social_networks_button, make_setting_button
+from bin import (UserClass, API_BOT, logger, db,
+                 main_button, social_networks_button, make_setting_button,
+                 NoHomeworkError)
 from handlers import Handlers
 
 bot = Bot(API_BOT)
@@ -65,13 +67,15 @@ async def marks(message: Message, user: UserClass):
     await message.answer(output, reply_markup=main_button(user), disable_notification=user.setting_notification, parse_mode='Markdown')
 
 
+@dp.message(F.text, Command("schedule"))
 @dp.message(F.text == 'Расписание 📅')
 @UserClass.get_user()
-async def schedule(message: Message, user: UserClass):
+async def schedule(message: Message, user: UserClass, command: CommandObject = None):
     if not user.check_token():
         await message.answer('У вас отсутствует токен, пожалуйста введите команду /token, чтобы получить его!')
         return
-    name_of_day, schedule = ps.get_schedule(user.token)
+    command_args = command.args if command else None
+    name_of_day, schedule = ps.get_schedule(user.token, command_args)
     output = f'*{name_of_day}:*\n'
     for lesson in schedule['response']:
         output += f'\t- {lesson['subject_name']} ({lesson["room_number"]})\n'
@@ -103,13 +107,16 @@ async def homework(message: Message, user: UserClass) -> None:
     pre_hk = await db.get_homework(user.username)
     if pre_hk is not None and (datetime.now() - pre_hk[0]) < timedelta(hours=1):
         hk = json.loads(pre_hk[1])
-    else:
-        try:
-            hk = ps.full_parse(token=user.token, student_id=user.student_id, parsing=True)
+    else:  # Если домашка не была обновлена в последний час/не была обнаружена в бд
+        async def update_homework():
             await db.update_homework_cache(user.username, homework=hk)
             logger.info('Домашка была обновлена')
-        except ValueError as e:
-            logger.warning(f'Произошла ошибка при получении дз: {e}')
+        try:
+            hk = ps.full_parse(token=user.token, student_id=user.student_id, parsing=True)
+            await update_homework()
+        except NoHomeworkError as e:
+            logger.error(f'{user.username} - {e.ready_message(user.setting_dw)}')
+            await msg.edit_text(e.ready_message(user.setting_dw))
             return
 
     # Анализируем домашку
