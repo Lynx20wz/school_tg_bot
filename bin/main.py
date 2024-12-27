@@ -2,14 +2,13 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 
-from aiogram import Dispatcher, Bot, F
+from aiogram import Bot, F, Dispatcher
 from aiogram.filters.command import Command
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile
 
 import parser as ps
 from bin import UserClass, API_BOT, logger, db, main_button, social_networks_button, make_setting_button
-from filters.is_admin import IsAdmin
-from handlers import *
+from handlers import Handlers
 
 bot = Bot(API_BOT)
 dp = Dispatcher()
@@ -246,8 +245,7 @@ async def delete_user(message: Message, user: UserClass):
 
 
 async def main():
-    dp.include_routers(debug_router, auth_router, unknown_router)
-    debug_router.message.filter(IsAdmin())
+    Handlers(dp).register_all()
     await bot.delete_webhook(drop_pending_updates=True)
     await restart()
     try:
