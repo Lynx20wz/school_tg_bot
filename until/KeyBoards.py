@@ -47,9 +47,7 @@ def token_button():
 def make_debug_button():
     return ReplyKeyboardMarkup(
             resize_keyboard=True, keyboard=[
-                [
-                    KeyboardButton(text='Запрос пользователя'),
-                ],
+                [KeyboardButton(text='Запрос пользователя'), ],
                 [KeyboardButton(text='Выкл. дебаг')],
                 [KeyboardButton(text='В главное меню'), ]
             ]

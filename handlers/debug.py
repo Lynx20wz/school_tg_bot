@@ -29,7 +29,8 @@ async def command_debug(message):
 **Доступные команды**:
 **/sql** __<command>__ | __<args>__ - сделать SQL запрос
 **/user** (/u) __<username>__ - получить информацию о пользователе
-**/users** - получить информацию о всех пользователях''',
+**/users** - получить информацию о всех пользователях
+**/logfile** - получить логи бота''',
             reply_markup=make_debug_button(), parse_mode='Markdown'
     )
 
@@ -77,6 +78,12 @@ async def sql_request(message, command):
             await message.answer(json.dumps(user_data, indent=4, ensure_ascii=False))
     else:
         await get_user(message)
+
+
+@debug_router.message(F.text, Command('logfile'))
+async def logfile(message):
+    with open('temp/log.log', 'r', encoding='utf-8') as logfile:
+        await message.answer('\n'.join(logfile.readlines()))
 
 
 @debug_router.message(F.text == 'Выкл. дебаг')

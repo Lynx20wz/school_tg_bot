@@ -1,5 +1,7 @@
 import asyncio
 import json
+import re
+import sys
 from datetime import datetime, timedelta
 
 from aiogram import Bot, F, Dispatcher
@@ -18,7 +20,7 @@ async def restart():
     """
     Перезапускает бота и создаёт всех пользователей из БД
     """
-    users = await db.restart_bot()
+    users = await db.restart_bot(False if '-back' in sys.argv else True)
     for user in users:
         UserClass(
                 user.get('username'),
@@ -251,6 +253,7 @@ async def main():
     try:
         await dp.start_polling(bot)
     finally:
+        await db.backup_create()
         await bot.close()
 
 

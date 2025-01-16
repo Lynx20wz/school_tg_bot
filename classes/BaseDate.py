@@ -1,15 +1,17 @@
 import json
+import os
 from datetime import datetime
 from typing import Optional, Union
 
 import aiosqlite
 
-from bin.config import BD_PATH, logger
+from bin.config import BD_PATH, logger, BD_BACKUP_PATH
 
 
 class BaseDate:
-    def __init__(self, path: str):
+    def __init__(self, path: str, backup_path: str):
         self.path = path
+        self.backup_path = backup_path
 
     async def add_user(self, user: tuple) -> dict[str, Union[str, int, bool]]:
         async with aiosqlite.connect(self.path) as db:
@@ -44,7 +46,8 @@ class BaseDate:
                     users = await cursor.fetchall()
                     return [dict(user) for user in users]
 
-    async def restart_bot(self) -> list[dict[str, Union[str, bool, int]]]:
+    async def restart_bot(self, load_backup: bool = True) -> list[dict[str, Union[str, bool, int]]]:
+        exists = os.path.exists(self.path)
         async with aiosqlite.connect(self.path) as db:
             db.row_factory = aiosqlite.Row
             await db.executescript(
@@ -66,6 +69,10 @@ class BaseDate:
                     );
                     '''
             )
+
+            if load_backup and not exists and os.path.exists(self.backup_path):
+                await self.backup_load()
+
             async with db.execute('SELECT DISTINCT * FROM users') as cursor:
                 return [dict(user) for user in await cursor.fetchall()]
 
@@ -148,5 +155,21 @@ class BaseDate:
             await db.commit()
             return await res.fetchall()
 
+    # Работа с бэкапом
+    async def backup_create(self):
+        if os.path.exists(self.path):
+            logger.debug('Создание бэкапа')
+            async with aiosqlite.connect(self.path) as db:
+                async with aiosqlite.connect(self.backup_path) as backup_db:
+                    await db.backup(backup_db)
+        else:
+            logger.debug('Бэкап не создан, так как база данных не существует')
 
-db = BaseDate(BD_PATH)
+    async def backup_load(self):
+        logger.debug('Загрузка бэкапа')
+        async with aiosqlite.connect(self.backup_path) as backup_db:
+            async with aiosqlite.connect(self.path) as db:
+                await backup_db.backup(db)
+
+
+db = BaseDate(BD_PATH, BD_BACKUP_PATH)
