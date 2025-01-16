@@ -76,7 +76,7 @@ class BaseDate:
             async with db.execute('SELECT DISTINCT * FROM users') as cursor:
                 return [dict(user) for user in await cursor.fetchall()]
 
-    async def get_homework(self, username: 'str') -> Optional[Union[tuple[datetime, str], str]]:
+    async def get_homework(self, username: 'str') -> Optional[tuple[datetime, dict]]:
         async with aiosqlite.connect(self.path) as db:
             async with db.execute(
                     '''
@@ -87,9 +87,14 @@ class BaseDate:
                     ''', (username,)
             ) as cursor:
                 data = await cursor.fetchone()
-                logger.debug(data)
+
                 if data is not None:
-                    return datetime.strptime(data[0], '%Y-%m-%d %H:%M'), data[1]
+                    timestamp, hk = data
+                    hk = json.loads(hk)
+                    hk['date'] = {k: datetime.fromisoformat(v) for k, v in hk['date'].items()}
+                    return datetime.fromisoformat(timestamp), hk
+                else:
+                    return None, None
 
     async def update_user(self, user):
         async with aiosqlite.connect(self.path) as db:
@@ -99,33 +104,54 @@ class BaseDate:
             )
             await db.commit()
 
-    async def update_homework_cache(self, /, username: str, homework: dict):
+    async def update_homework_cache(self, username: str, homework: dict):
         async with aiosqlite.connect(self.path) as db:
             async with db.execute(
-                    'SELECT id FROM homework_cache WHERE id = (SELECT homework_id FROM users WHERE username = ?)', (username,)
+                    '''
+                    SELECT id
+                    FROM homework_cache
+                    WHERE id = (
+                        SELECT homework_id
+                        FROM users
+                        WHERE username = ?
+                    )''',
+                    (username,)
             ) as cursor:
                 result = await cursor.fetchone()
-                logger.debug(result)
-                # если result == None то привязываем пользователя к новой ячейке таблицы в которую заносим токен, если result != None, то проверяем что такокого кэша нет в таблице, если есть удаляем запись с токеном и привязывыям пользователя туда
+                # logger.debug(result)
+                # Если result == None то привязываем пользователя к новой ячейке таблицы в которую заносим токен.
+                # Если result != None, то проверяем что такого кэша нет в таблице.
+                # Если есть удаляем запись с токеном и привязывая пользователя туда
                 if result is None:
                     await self.set_homework_id(username, homework)
                 else:
+                    homework['date'] = {k: v.isoformat() for k, v in homework['date'].items()}
                     await db.execute(
                             '''
-                                UPDATE homework_cache SET timestamp = ?, cache = ? WHERE id = (SELECT homework_id FROM users WHERE username = ?)
-                                ''',
+                            UPDATE homework_cache
+                            SET timestamp = ?, cache = ?
+                            WHERE id = (
+                                SELECT homework_id
+                                FROM users 
+                                WHERE username = ?
+                            )
+                            ''',
                             (
-                                datetime.now().strftime('%Y-%m-%d %H:%M'),
+                                datetime.now().isoformat(),
                                 json.dumps(homework, ensure_ascii=False),
-                                username,)
+                                username
+                            )
                     )
+                    await db.commit()
 
     async def set_homework_id(self, username: str, homework: dict):
         async with aiosqlite.connect(self.path) as db:
+            homework['date'] = {k: v.isoformat() for k, v in homework['date'].items()}
+            logger.debug(homework['date'])
             homework_str = json.dumps(homework, ensure_ascii=False)
             async with db.execute('SELECT id FROM homework_cache WHERE cache = ?', (homework_str,)) as cursor:
                 result = await cursor.fetchone()
-                logger.debug(f'{result=}, {homework_str=}')
+                # logger.debug(f'{result=}, {homework_str=}')
                 if result:
                     await db.execute('UPDATE users SET homework_id = ? WHERE username = ?', (result[0], username))
                 else:

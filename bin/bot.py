@@ -1,5 +1,4 @@
 import asyncio
-import json
 import re
 import sys
 from datetime import datetime, timedelta
@@ -39,7 +38,7 @@ async def restart():
 @UserClass.get_user()
 async def start(message: Message, user: UserClass):
     logger.info(f'Бота запустили ({message.from_user.username})')
-    with open('../Логирование.png', 'rb') as file:
+    with open('Логирование.png', 'rb') as file:
         await message.answer_photo(
                 photo=BufferedInputFile(file.read(), filename='Логирование'),
                 caption='''Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д. Найдёте ошибки сообщите: @Lynx20wz)
@@ -72,10 +71,9 @@ async def schedule(message: Message, user: UserClass):
     if not user.check_token():
         await message.answer('У вас отсутствует токен, пожалуйста введите команду /token, чтобы получить его!')
         return
-    name_of_day, schedule = ps.get_schedule(user.token)
-    output = f'*{name_of_day}:*\n'
     name_of_day, schedule = parser.get_schedule(user.token)
 
+    output = f'*Расписание на {name_of_day} ({datetime.now().strftime("%d.%m")}):*\n'
     for lesson in schedule['response']:
         output += f'\t- {lesson['subject_name']} ({lesson["room_number"]})\n'
     output += f'-------------------------------\nВсего уроков: {schedule['total_count']}\n'
@@ -85,7 +83,7 @@ async def schedule(message: Message, user: UserClass):
 
 @dp.message(F.text == 'Домашнее задание 📓')
 @UserClass.get_user()
-async def homework(message: Message, user: UserClass) -> None:
+async def homework(message: Message, user: UserClass):
     """
     Высылает текст домашнего задания в соответствии с настройками пользователя.
 
@@ -120,41 +118,56 @@ async def homework(message: Message, user: UserClass) -> None:
             await message.answer('Произошла ошибка при получении дз. Повторите попытку позже.')
             return
 
+    async def get_output_for_day(link: bool, day_name: str) -> str:
+        one_day = hk.get(day_name)
+        begin_date = hk.get('date').get('begin_date').strftime('%d.%m')
+        end_date = hk.get('date').get('end_date').strftime('%d.%m')
+        output = f'\n*Домашка на {day_name} ({begin_date + '-' + end_date if user.setting_dw else begin_date})*:\n'
+        for lesson in one_day:
+            if lesson['links']:
+                lesson['links'] = f"\t└ {'\n\t\t\t'.join(f"[ЦДЗ {i}]({exam})" for i, exam in enumerate(lesson['links'], start=1))}\n"
+            else:
+                lesson['links'] = ''
+            if not link and 'https://' in lesson['homework']:
+                link = True
+            output += f'*• {lesson['name']}:*\n\t{'├' if lesson['links'] else '└'} _{lesson['homework'].strip()}_\n{lesson['links']}'
+        output += f'{"-" * min(58, len(max(output.split("\n"), key=len)))}\nВсего задано уроков: {len(one_day)}'
+        output = '\n'.join(
+                [
+                    re.sub(r'([\[(.\])=#-])', r'\\\1', line)
+                    if not '[ЦДЗ' in line
+                    else line
+                    for line in output.split('\n')
+                ]
+        )
+        return output
+
+    await bot.delete_message(message.chat.id, msg.message_id)
     # Анализируем домашку
-    output = ''
     if user.setting_dw:  # Если setting_dw равен True, выводим на всю неделю
-        for i, one_day in enumerate(hk.values(), start=1):
-            day_of_week = ps.get_weekday(i)
-            output += f'\n*{day_of_week}*:\n'
-            for number_lesson, lesson in enumerate(one_day, start=1):
-                output += f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
-                if 'https://' in lesson[2]:
-                    link = True
-        output += f'-------------------------------\nВсего задано уроков: {sum(len(day) for day in hk.values())}'
+        output = ''
+        for i in range(1, 6):
+            output += await get_output_for_day(link, parser.get_weekday(i)) + '\n'
     else:  # Если False то на один день
         today_index = datetime.now().isoweekday()
 
+        # Если сегодня суббота или воскресенье, то выводим на следующий понедельник
         if today_index in [5, 6, 7]:
             next_day_index = 1
         else:
             next_day_index = today_index + 1
 
-        day_of_week = ps.get_weekday(next_day_index)
-        output += f'\n*{day_of_week}*:\n'
-        one_day = hk.get(day_of_week)
+        day_name = parser.get_weekday(next_day_index)
 
-        # logger.debug(f'{next_day_index} - {today_index}) {one_day}')
-        for number_lesson, lesson in enumerate(one_day, start=1):
-            output += f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
-            if 'https://' in lesson[2]:
-                link = True
-        output += f'-------------------------------\nВсего задано уроков: {len(one_day)}'
-    await bot.delete_message(message.chat.id, msg.message_id)
+        output = await get_output_for_day(link, day_name)
+
     if link:
-        murkup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text='Бот для решения ЦДЗ', url='https://t.me/solving_CDZ_tests_bot')]])
-        await message.answer(output, parse_mode="Markdown", reply_markup=murkup, disable_notification=user.setting_notification)
+        murkup = InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text='Бот для решения ЦДЗ', url='https://t.me/solving_CDZ_tests_bot')]]
+        )
+        await message.answer(output, parse_mode="MarkdownV2", reply_markup=murkup, disable_notification=user.setting_notification)
     else:
-        await message.answer(output, parse_mode="Markdown", disable_notification=user.setting_notification)
+        await message.answer(output, parse_mode="MarkdownV2", disable_notification=user.setting_notification)
 
 
 @dp.message(F.text == 'Соц. сети класса 💬')

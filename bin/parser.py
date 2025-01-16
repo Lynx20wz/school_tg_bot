@@ -80,10 +80,11 @@ def get_homework_from_website(token: str, student_id: int, date: datetime = date
         logger.error(f'Код ответа сервера при попытке парсинга домашнего задания: {response.status_code}\n{response.text}')
         raise ValueError(f'Код ответа сервера при попытке парсинга домашнего задания: {response.status_code}')
 
-    with open('../temp/school.json', 'w', encoding='utf-8') as file:
-        json.dump(response.json(), file, indent=4, ensure_ascii=False)
-
-    return response.json()
+    output = response.json()
+    output['date'] = {}
+    output['date']['begin_date'] = datetime.strptime(begin_date, '%Y-%m-%d')
+    output['date']['end_date'] = datetime.strptime(end_date, '%Y-%m-%d')
+    return output
 
 
 def get_student_id(token: str) -> int:
@@ -246,7 +247,7 @@ def get_schedule(token: str) -> tuple[str, dict]:
     return get_weekday(schedule_day), response
 
 
-def get_links_in_lesson(response: dict) -> dict:
+def get_links_in_lesson(response: dict[str, dict]) -> dict:
     """
     :param response: словарь который содержит в себе домашнее задание
     :type response: dict
@@ -257,21 +258,26 @@ def get_links_in_lesson(response: dict) -> dict:
     links = {day: {} for day in get_weekday()[:5]}
     for day_name, day in response.get('дни').items():
         for lesson in day:
-            try:
-                links[day_name][lesson.get('subject_name')] = (lesson.get('additional_materials')[0].get('items')[0].get('urls')[2].get('url'))
-            except IndexError:
-                pass
+            add_mat: dict | None = lesson.get('additional_materials')
+            if add_mat:
+                for mat in add_mat:
+                    if re.match('test_.*', mat.get('type')):
+                        links[day_name][lesson.get('subject_name')] = [
+                            item.get('urls')[2].get('url')
+                            for i, item in enumerate(mat.get('items'), start=1)
+                        ]
+
     response['links'] = links
     return response
 
 
-def split_day(response: dict) -> dict:
+def split_day(response: dict[str, dict]) -> dict:
     """
     Делит уроки из response по дням.
 
     :param response: Принимает в себя dict с домашним заданием.
     """
-    lessons_dict = {'дни': {day: [] for day in get_weekday()[:5]}}
+    lessons_dict = {'дни': {day: [] for day in get_weekday()[:5]}, 'date': response['date']}
     for i, lesson in enumerate(response['payload'], start=1):
         date_lesson = datetime.strptime(lesson['date'], '%Y-%m-%d').isoweekday()
         date_weekday = get_weekday(date_lesson)
@@ -300,8 +306,15 @@ def homework_output(dict_hk: dict = None, need_output: bool = False) -> Union[di
             if homework in ['.', ''] or 'Не задано' in homework:
                 pass
             else:
-                day_list.append((name, cabinet_number, homework))
+                lesson_info = {
+                    'name': name,
+                    'links': links,
+                    'homework': homework
+                }
+                day_list.append(lesson_info)
             output[day_name] = day_list
+    output['date'] = dict_hk['date']
+
     if not need_output:
         return output
     else:
@@ -329,7 +342,6 @@ def full_parse(
     :param student_id: id ученика
     :param date: Дата, для которой нужно произвести анализ. По умолчанию - сегодняшняя дата.
     :param output: Нужен ли вывод строки или вернуть словарь.
-    :param parsing: Нужно ли делать парсинг с госулслуг
     """
 
     response = get_homework_from_website(token, student_id, date)
