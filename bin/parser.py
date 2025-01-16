@@ -1,10 +1,10 @@
-import json
+import re
 from datetime import datetime, timedelta
 from typing import Union
 
 import requests
 
-from config import logger
+from bin import ExpiredToken, logger
 
 
 def get_weekday(number: int = None) -> Union[str, list[str]]:
@@ -32,7 +32,7 @@ def get_homework_from_website(token: str, student_id: int, date: datetime = date
     date_in_str = datetime(datetime.now().year, date.month, date.day)
 
     day = date_in_str.isoweekday()
-    monday = date_in_str + timedelta(days=(1 - day)) if (1 - day) > -4 else date_in_str + timedelta(days=(8 - day))
+    monday = date_in_str - timedelta(days=(day - 1)) if day < 6 else date_in_str - timedelta(days=(day - 8))
 
     begin_date = monday.strftime('%Y-%m-%d')
     end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
@@ -73,8 +73,10 @@ def get_homework_from_website(token: str, student_id: int, date: datetime = date
             cookies=cookie,
             headers=headers,
     )
-
-    if response.status_code >= 400:
+    if response.status_code == 401:
+        logger.error(f'Токен пользователя не действителен: {response.status_code}\n{response.text}')
+        raise ExpiredToken('Токен пользователя не действителен')
+    elif response.status_code >= 400:
         logger.error(f'Код ответа сервера при попытке парсинга домашнего задания: {response.status_code}\n{response.text}')
         raise ValueError(f'Код ответа сервера при попытке парсинга домашнего задания: {response.status_code}')
 
@@ -150,7 +152,7 @@ def get_marks(student_id: int, token: str, date: datetime = datetime.now()) -> d
     date_in_str = datetime(datetime.now().year, date.month, date.day)
 
     day = date_in_str.isoweekday()
-    monday = date_in_str + timedelta(days=(1 - day) - 7) if (1 - day) > -4 else date_in_str + timedelta(days=(8 - day) - 7)
+    monday = date_in_str - timedelta(days=(day - 1)) if day < 6 else date_in_str - timedelta(days=(day - 8))
 
     begin_date = monday.strftime('%Y-%m-%d')
     end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
@@ -286,20 +288,14 @@ def homework_output(dict_hk: dict = None, need_output: bool = False) -> Union[di
     :return: Возвращает строку с информацией о домашнем задании.
     """
     output = {}
-    if dict_hk is None:
-        with open('../temp/school.json', 'r', encoding='utf-8') as file:
-            response = json.load(file)
-            lessons_dict = split_day(response)
-    else:
-        lessons_dict = dict_hk  # прохожу по каждому имени дня
-    for day_name, day in lessons_dict['дни'].items():  # прохожу по всем дням
+    for day_name, day in dict_hk['дни'].items():  # прохожу по всем дням
         day_list = []
         for lid in day:  # (lesson in day) прохожусь по урокам в дне (day)
             name = lid.get('subject_name')
             if name == 'Труд (технология)': name = 'Технология'
             if name == 'Музыка': name = 'МХК'
 
-            cabinet_number = lid.get('room_number')
+            links = dict_hk['links'][day_name].get(name)
             homework = lid.get('homework')
             if homework in ['.', ''] or 'Не задано' in homework:
                 pass
@@ -319,7 +315,13 @@ def homework_output(dict_hk: dict = None, need_output: bool = False) -> Union[di
         return return_output
 
 
-def full_parse(*, token = None, student_id: int = None, date: datetime = datetime.now(), output: bool = False, parsing: bool = False) -> dict:
+def full_parse(
+    *,
+    token = None,
+    student_id: int = None,
+    date: datetime = datetime.now(),
+    output: bool = False,
+) -> dict:
     """
     Функция для полного анализа расписания.
 
@@ -329,14 +331,8 @@ def full_parse(*, token = None, student_id: int = None, date: datetime = datetim
     :param output: Нужен ли вывод строки или вернуть словарь.
     :param parsing: Нужно ли делать парсинг с госулслуг
     """
-    if parsing:
-        response = get_homework_from_website(token, student_id, date)
-    else:
-        try:
-            with open('../temp/school.json', 'r', encoding='utf-8') as file:
-                response = json.loads(file.read())
-        except FileNotFoundError:
-            raise FileNotFoundError('Файл с расписанием не найден. Пожалуйста, запустите 1-ый режим!')
+
+    response = get_homework_from_website(token, student_id, date)
     ready_for_output = get_links_in_lesson(split_day(response))
     return homework_output(ready_for_output, output)
 
@@ -358,7 +354,7 @@ if __name__ == '__main__':
                 break
             except ValueError:
                 print("Некорректный формат даты. Попробуйте снова.")
-        print(full_parse(token=token, date=f_date, parsing=True, output=True))
+        print(full_parse(token=token, date=f_date, output=True))
     elif mode == 2:
         print(full_parse(date=datetime.now(), output=True))
     else:

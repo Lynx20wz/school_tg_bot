@@ -8,8 +8,7 @@ from aiogram import Bot, F, Dispatcher
 from aiogram.filters.command import Command
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile
 
-import parser as ps
-from bin import UserClass, API_BOT, logger, db, main_button, social_networks_button, make_setting_button
+from bin import UserClass, API_BOT, logger, db, main_button, social_networks_button, make_setting_button, ExpiredToken, parser
 from handlers import Handlers
 
 bot = Bot(API_BOT)
@@ -56,10 +55,10 @@ async def marks(message: Message, user: UserClass):
         await message.answer('У вас отсутствует токен, пожалуйста введите команду /token, чтобы получить его!')
         return
     logger.info(f'Вызваны оценки ({message.from_user.username})')
-    response = ps.get_marks(user.student_id, user.token)
+    response = parser.get_marks(user.student_id, user.token)
     output = ''
     for lesson in response['payload']:
-        day_of_week = ps.get_weekday(datetime.strptime(lesson['date'], '%Y-%m-%d').isoweekday())
+        day_of_week = parser.get_weekday(datetime.strptime(lesson['date'], '%Y-%m-%d').isoweekday())
         if day_of_week not in output:
             output += f'*{day_of_week}:*\n'
         output += f'\t- {lesson["subject_name"]}: {lesson["value"]}\n'
@@ -75,6 +74,8 @@ async def schedule(message: Message, user: UserClass):
         return
     name_of_day, schedule = ps.get_schedule(user.token)
     output = f'*{name_of_day}:*\n'
+    name_of_day, schedule = parser.get_schedule(user.token)
+
     for lesson in schedule['response']:
         output += f'\t- {lesson['subject_name']} ({lesson["room_number"]})\n'
     output += f'-------------------------------\nВсего уроков: {schedule['total_count']}\n'
@@ -103,15 +104,20 @@ async def homework(message: Message, user: UserClass) -> None:
 
     # Получаем домашку
     pre_hk = await db.get_homework(user.username)
-    if pre_hk is not None and (datetime.now() - pre_hk[0]) < timedelta(hours=1):
-        hk = json.loads(pre_hk[1])
+    if all(pre_hk) and (datetime.now() - pre_hk[0]) < timedelta(hours=1):
+        hk = pre_hk[1]
     else:
         try:
-            hk = ps.full_parse(token=user.token, student_id=user.student_id, parsing=True)
-            await db.update_homework_cache(user.username, homework=hk)
+            hk = parser.full_parse(token=user.token, student_id=user.student_id)
+            await db.update_homework_cache(user.username, hk)
             logger.info('Домашка была обновлена')
+        except ExpiredToken as e:
+            logger.warning(f'Недействительный токен: {e}')
+            await message.answer('У вас недействительный токен, пожалуйста введите команду /token, чтобы обновить его!')
+            return
         except ValueError as e:
             logger.warning(f'Произошла ошибка при получении дз: {e}')
+            await message.answer('Произошла ошибка при получении дз. Повторите попытку позже.')
             return
 
     # Анализируем домашку
