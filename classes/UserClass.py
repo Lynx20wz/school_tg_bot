@@ -23,6 +23,7 @@ class UserClass:
         debug: bool = False,
         setting_dw: bool = False,
         setting_notification: bool = True,
+        setting_hide_link: bool = False,
         token: str = None,
         student_id: int = None,
         homework_id: int = None,
@@ -35,6 +36,7 @@ class UserClass:
         :param debug: Флаг отладки.
         :param setting_dw: Флаг настройки уведомлений.
         :param setting_notification: Флаг уведомлений.
+        :param setting_hide_link: Флаг скрытия ссылок.
         :param token: Токен авторизации пользователя.
         :param student_id: ID студента.
         :param homework_id: ID домашнего задания.
@@ -45,12 +47,29 @@ class UserClass:
         self.debug = debug
         self.setting_dw = setting_dw
         self.setting_notification = setting_notification
-        self.data = (username, userid, setting_dw, setting_notification, debug)
+        self.setting_hide_link = setting_hide_link
+        self.data = (
+        username,
+        userid,
+        setting_dw,
+        setting_notification,
+        setting_hide_link,
+        debug)
         self.token = token
         self.student_id = student_id
         self.homework_id = homework_id
 
-        asyncio.create_task(db.add_user((username, userid, debug, setting_dw, setting_notification)))
+        asyncio.create_task(
+            db.add_user(
+                    (
+                    username,
+                    userid,
+                    debug,
+                    setting_dw,
+                    setting_notification,
+                    setting_hide_link)
+                    )
+            )
 
         async def update_existing_user():
             existing_user = await self.get_user_from_massive(username, 2)
@@ -107,6 +126,10 @@ class UserClass:
                                         user_db.get('debug', False),
                                         user_db.get('setting_dw', True),
                                         user_db.get('setting_notification', True),
+                                        user_db.get(
+                                            'setting_hide_link',
+                                            False
+                                            ),
                                         user_db.get('token'),
                                         user_db.get('student_id'),
                                         user_db.get('homework'),
@@ -127,13 +150,20 @@ class UserClass:
         return wrapper
 
     async def save_settings(
-        self, *, setting_dw: bool = None, setting_notification: bool = None, debug: bool = None, save_db: bool = False
+        self,
+        *,
+        setting_dw: bool = None,
+        setting_notification: bool = None,
+        setting_hide_link: bool = None,
+        debug: bool = None,
+        save_db: bool = False
     ):
         """
         Сохраняет настройки пользователя.
 
         :param setting_dw: Флаг настройки уведомлений.
         :param setting_notification: Флаг уведомлений.
+        :param setting_hide_link: Флаг скрытия ссылок.
         :param debug: Флаг отладки.
         :param save_db: Если True, то настройки будут обновленный не только в массиве пользователей,
         а также и в БД.
@@ -142,18 +172,25 @@ class UserClass:
             setting_dw = self.setting_dw
         if setting_notification is None:
             setting_notification = self.setting_notification
+        if setting_hide_link is None:
+            setting_hide_link = self.setting_hide_link
         if debug is None:
             debug = self.debug
 
         self.setting_dw = setting_dw
         self.setting_notification = setting_notification
+        self.setting_hide_link = setting_hide_link
         self.debug = debug
 
-        user_index = await self.get_user_from_massive(self.username, 3)
-        if user_index is not None:
-            UserClass.users[user_index].setting_dw = setting_dw
-            UserClass.users[user_index].setting_notification = setting_notification
-            UserClass.users[user_index].debug = debug
+        user = await self.get_user_from_massive(
+            self.username,
+            2
+            )
+        if user is not None:
+            user.setting_dw = setting_dw
+            user.setting_notification = setting_notification
+            user.setting_hide_link = setting_hide_link
+            user.debug = debug
 
         if save_db:
             asyncio.create_task(db.update_user(self))

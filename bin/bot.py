@@ -15,9 +15,6 @@ dp = Dispatcher()
 
 
 async def restart():
-    """
-    Перезапускает бота и создаёт всех пользователей из БД
-    """
     users = await db.restart_bot(False if '-back' in sys.argv else True)
     for user in users:
         UserClass(
@@ -26,12 +23,16 @@ async def restart():
                 bool(user.get('debug')),
                 bool(user.get('setting_dw')),
                 bool(user.get('setting_notification')),
+                bool(
+                    user.get(
+                        'setting_hide_link'
+                        )
+                    ),
                 user.get('token'),
                 user.get('student_id'),
                 user.get('homework_id'),
         )
     logger.debug('Бот рестарт!')
-
 
 # СТАРТ!
 @dp.message(F.text, Command("start"))
@@ -62,7 +63,14 @@ async def marks(message: Message, user: UserClass):
             output += f'*{day_of_week}:*\n'
         output += f'\t- {lesson["subject_name"]}: {lesson["value"]}\n'
 
-    await message.answer(output, reply_markup=main_button(user), disable_notification=user.setting_notification, parse_mode='Markdown')
+    await message.answer(
+            output,
+            reply_markup=main_button(
+                user
+                ),
+            disable_notification=user.setting_notification,
+            parse_mode='Markdown'
+    )
 
 
 @dp.message(F.text == 'Расписание 📅')
@@ -125,7 +133,12 @@ async def homework(message: Message, user: UserClass):
         output = f'\n*Домашка на {day_name} ({begin_date + '-' + end_date if user.setting_dw else begin_date})*:\n'
         for lesson in one_day:
             if lesson['links']:
-                lesson['links'] = f"\t└ {'\n\t\t\t'.join(f"[ЦДЗ {i}]({exam})" for i, exam in enumerate(lesson['links'], start=1))}\n"
+                if user.setting_hide_link:
+                    lesson[
+                        'links'] = f"\t└ {'\n\t\t\t'.join(f"{re.sub(r'([\[(.\])=~_#-])', r'\\\1', exam)}" for i, exam in enumerate(lesson['links'], start=1))}\n"
+                else:
+                    lesson[
+                        'links'] = f"\t├ {'\n\t\t\t'.join(f"[ЦДЗ {i}]({exam})" for i, exam in enumerate(lesson['links'], start=1))}\n"
             else:
                 lesson['links'] = ''
             if not link and 'https://' in lesson['homework']:
@@ -134,8 +147,12 @@ async def homework(message: Message, user: UserClass):
         output += f'{"-" * min(58, len(max(output.split("\n"), key=len)))}\nВсего задано уроков: {len(one_day)}'
         output = '\n'.join(
                 [
-                    re.sub(r'([\[(.\])=#-])', r'\\\1', line)
-                    if not '[ЦДЗ' in line
+                    re.sub(
+                        r'([\[(.\])#-])',
+                        r'\\\1',
+                        line
+                        )
+                    if not 'https://' in line
                     else line
                     for line in output.split('\n')
                 ]
@@ -160,6 +177,10 @@ async def homework(message: Message, user: UserClass):
         day_name = parser.get_weekday(next_day_index)
 
         output = await get_output_for_day(link, day_name)
+
+    logger.debug(
+        output
+        )
 
     if link:
         murkup = InlineKeyboardMarkup(
@@ -205,6 +226,10 @@ async def settings(message: Message, user: UserClass):
 *Уведомления:*
     1) *"Уведомления вкл.":* включает звук уведомлений для каждого сообщения.
     2) *"Уведомления выкл.":* отключает звук уведомления для каждого сообщения.
+    
+*Скрытие ссылок:*
+    1) *"Скрыть ссылки":* ссылки будут замаскированны под "ЦДЗ".
+    2) *"Показать ссылки":* ссылки будут выведены напрямую.
             ''',
             reply_markup=murkup, parse_mode='Markdown',
             disable_notification=user.setting_notification
@@ -245,11 +270,49 @@ async def change_notification(message: Message, user: UserClass):
     )
 
 
+@dp.message(
+        F.text.in_(
+                [
+                    'Скрыть ссылки',
+                    'Показать ссылки']
+                )
+        )
+@UserClass.get_user()
+async def change_link(
+    message: Message,
+    user: UserClass
+    ):
+    if message.text == 'Скрыть ссылки':
+        user.setting_hide_link = True
+    elif message.text == 'Показать ссылки':
+        user.setting_hide_link = False
+    murkup = make_setting_button(
+        user
+        )
+    await user.save_settings(
+        setting_hide_link=user.setting_hide_link
+        )
+    logger.info(
+        f'Изменены настройки ссылок ({message.from_user.username} - {user.setting_hide_link} ({user.data}))'
+        )
+    await message.answer(
+            'Настройки успешно изменены!',
+            reply_markup=murkup,
+            disable_notification=user.setting_notification
+    )
+
+
 @dp.message(F.text == 'Назад')
 @UserClass.get_user()
 async def exit_settings(message: Message, user: UserClass):
     logger.info(f'Вышел из настроек ({message.from_user.username})')
-    await user.save_settings(setting_dw=user.setting_dw, setting_notification=user.setting_notification, debug=user.debug, save_db=True)
+    await user.save_settings(
+            setting_dw=user.setting_dw,
+            setting_notification=user.setting_notification,
+            setting_hide_link=user.setting_hide_link,
+            debug=user.debug,
+            save_db=True
+    )
     await message.answer(
             'Главное меню',
             reply_markup=main_button(user),

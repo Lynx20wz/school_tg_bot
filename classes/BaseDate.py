@@ -24,8 +24,8 @@ class BaseDate:
                 logger.info(f'{user[0]} был добавлен в базу данных')
                 await db.execute(
                         '''
-                        INSERT INTO users (username, userid, debug, setting_dw, setting_notification) 
-                        VALUES (?, ?, ?, ?, ?)
+                        INSERT INTO users (username, userid, debug, setting_dw, setting_notification, setting_hide_link) 
+                        VALUES (?, ?, ?, ?, ?, ?)
                         ''', (*user,)
                 )
                 await db.commit()
@@ -58,6 +58,7 @@ class BaseDate:
                         debug INTEGER DEFAULT 0,
                         setting_dw INTEGER DEFAULT 0,
                         setting_notification INTEGER DEFAULT 0,
+                        setting_hide_link INTEGER DEFAULT 0,
                         token TEXT,
                         student_id INTEGER,
                         homework_id INTEGER REFERENCES homework_cache(id)
@@ -88,7 +89,9 @@ class BaseDate:
             ) as cursor:
                 data = await cursor.fetchone()
 
-                if data is not None:
+                if all(
+                        data
+                        ):
                     timestamp, hk = data
                     hk = json.loads(hk)
                     hk['date'] = {k: datetime.fromisoformat(v) for k, v in hk['date'].items()}
@@ -99,8 +102,15 @@ class BaseDate:
     async def update_user(self, user):
         async with aiosqlite.connect(self.path) as db:
             await db.execute(
-                    'UPDATE users SET debug = ?, setting_dw = ?, setting_notification = ?, token = ?, student_id = ? WHERE username = ?',
-                    (user.debug, user.setting_dw, user.setting_notification, user.token, user.student_id, user.username,)
+                    'UPDATE users SET debug = ?, setting_dw = ?, setting_notification = ?, setting_hide_link = ?, token = ?, student_id = ? WHERE username = ?',
+                    (
+                    user.debug,
+                    user.setting_dw,
+                    user.setting_notification,
+                    user.setting_hide_link,
+                    user.token,
+                    user.student_id,
+                    user.username,)
             )
             await db.commit()
 

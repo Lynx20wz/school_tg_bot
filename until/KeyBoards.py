@@ -26,7 +26,12 @@ def make_setting_button(user):
             resize_keyboard=True, keyboard=[
                 [
                     KeyboardButton(text='Выдача на неделю' if user.setting_dw else 'Выдача на день'),
-                    KeyboardButton(text='Уведомления вкл.' if user.setting_notification else 'Уведомления выкл.')
+                    KeyboardButton(
+                        text='Уведомления вкл.' if user.setting_notification else 'Уведомления выкл.'
+                        ),
+                    KeyboardButton(
+                        text='Показать ссылки' if user.setting_hide_link else 'Скрыть ссылки'
+                        ),
                 ],
                 [KeyboardButton(text='Назад')],
             ]
