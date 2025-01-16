@@ -1,3 +1,3 @@
 from .config import *
-from until.KeyBoards import *
+from until import *
 from classes import *

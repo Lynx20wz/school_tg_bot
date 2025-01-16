@@ -1,4 +1,4 @@
-__all__ = ('BD_PATH', 'API_BOT', 'ADMIN_IDS', 'logger')
+__all__ = ('BD_PATH', 'BD_BACKUP_PATH', 'API_BOT', 'ADMIN_IDS', 'logger')
 
 from sys import stdout, exit
 
@@ -11,6 +11,7 @@ env.read_env()
 
 try:
     BD_PATH = env.str('BD_PATH')
+    BD_BACKUP_PATH = env.str('BD_BACKUP_PATH')
     API_BOT = env.str('API_BOT')
     ADMIN_IDS = env.list('ADMIN_IDS', subcast=int)
 except EnvError as e:
@@ -30,7 +31,7 @@ logger.add(
 )
 logger.add(
         format=log_format,
-        sink='..//temp//log.log',
+        sink='temp//log.log',
         level='INFO',
         mode='w',
 )
