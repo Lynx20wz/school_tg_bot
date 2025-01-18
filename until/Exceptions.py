@@ -1,4 +1,4 @@
-__all__ = ('ExpiredToken')
+__all__ = 'ExpiredToken'
 
 
 class ExpiredToken(Exception):

@@ -14,8 +14,12 @@ def get_token(login, password):
     logger.debug(f'{login}, {password}')
     service = Service('.//geckodriver.exe')
     firefox_options = Options()
-    firefox_options.add_argument("--headless")  # Запуск в тихом режиме (без окна браузера)
-    firefox_options.add_argument("--disable-dev-shm-usage")  # (Опционально) для ресурсов
+    firefox_options.add_argument(
+        '--headless'
+    )  # Запуск в тихом режиме (без окна браузера)
+    firefox_options.add_argument(
+        '--disable-dev-shm-usage'
+    )  # (Опционально) для ресурсов
     driver = webdriver.Firefox(service=service, options=firefox_options)
     logger.info('Ищу куки!')
     try:
@@ -24,19 +28,21 @@ def get_token(login, password):
 
         logger.debug('На гос. услугах')
         WebDriverWait(driver, 10).until(
-                ec.element_to_be_clickable((By.CLASS_NAME, 'loginForm_LoginFormButtonGos__FlI2F'))
+            ec.element_to_be_clickable(
+                (By.CLASS_NAME, 'loginForm_LoginFormButtonGos__FlI2F')
+            )
         ).click()
 
         username_field = WebDriverWait(driver, 10).until(
-                ec.visibility_of_element_located((By.NAME, "Телефон  /  Email  /  СНИЛС"))
+            ec.visibility_of_element_located((By.NAME, 'Телефон  /  Email  /  СНИЛС'))
         )
-        password_field = driver.find_element(By.NAME, "Пароль")
+        password_field = driver.find_element(By.NAME, 'Пароль')
 
         username_field.send_keys(login)
         password_field.send_keys(password)
 
         WebDriverWait(driver, 10).until(
-                ec.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Войти')]"))
+            ec.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Войти')]"))
         ).click()
         logger.debug('Захожу на школьный портал')
         time.sleep(1)

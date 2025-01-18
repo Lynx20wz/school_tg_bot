@@ -8,20 +8,24 @@ from bin import ExpiredToken, logger
 
 
 def get_weekday(number: int = None) -> Union[str, list[str]]:
-    weekdays = {1: 'Понедельник',
-                2: 'Вторник',
-                3: 'Среда',
-                4: 'Четверг',
-                5: 'Пятница',
-                6: 'Суббота',
-                7: 'Воскресенье'}
+    weekdays = {
+        1: 'Понедельник',
+        2: 'Вторник',
+        3: 'Среда',
+        4: 'Четверг',
+        5: 'Пятница',
+        6: 'Суббота',
+        7: 'Воскресенье',
+    }
     if not number:
         return [name_day for name_day in weekdays.values()]
     else:
         return weekdays.get(number)
 
 
-def get_homework_from_website(token: str, student_id: int, date: datetime = datetime.now()) -> dict:
+def get_homework_from_website(
+    token: str, student_id: int, date: datetime = datetime.now()
+) -> dict:
     """
     Парсит данные со школьного портала и заносит их в файл в формате json.
     :param token: токен авторизации для парсинга с госулслуг
@@ -32,7 +36,11 @@ def get_homework_from_website(token: str, student_id: int, date: datetime = date
     date_in_str = datetime(datetime.now().year, date.month, date.day)
 
     day = date_in_str.isoweekday()
-    monday = date_in_str - timedelta(days=(day - 1)) if day < 6 else date_in_str - timedelta(days=(day - 8))
+    monday = (
+        date_in_str - timedelta(days=(day - 1))
+        if day < 6
+        else date_in_str - timedelta(days=(day - 8))
+    )
 
     begin_date = monday.strftime('%Y-%m-%d')
     end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
@@ -60,25 +68,27 @@ def get_homework_from_website(token: str, student_id: int, date: datetime = date
         'sec-ch-ua-mobile': '?0',
         'sec-ch-ua-platform': '"Windows"',
     }
-    params = {
-        'from': begin_date,
-        'to': end_date,
-        'student_id': student_id,
-    }
+    params = {'from': begin_date, 'to': end_date, 'student_id': student_id}
     cookie = {'aupd_token': token}
 
     response = requests.get(
-            'https://authedu.mosreg.ru/api/family/web/v1/homeworks',
-            params=params,
-            cookies=cookie,
-            headers=headers,
+        'https://authedu.mosreg.ru/api/family/web/v1/homeworks',
+        params=params,
+        cookies=cookie,
+        headers=headers,
     )
     if response.status_code == 401:
-        logger.error(f'Токен пользователя не действителен: {response.status_code}\n{response.text}')
+        logger.error(
+            f'Токен пользователя не действителен: {response.status_code}\n{response.text}'
+        )
         raise ExpiredToken('Токен пользователя не действителен')
     elif response.status_code >= 400:
-        logger.error(f'Код ответа сервера при попытке парсинга домашнего задания: {response.status_code}\n{response.text}')
-        raise ValueError(f'Код ответа сервера при попытке парсинга домашнего задания: {response.status_code}')
+        logger.error(
+            f'Код ответа сервера при попытке парсинга домашнего задания: {response.status_code}\n{response.text}'
+        )
+        raise ValueError(
+            f'Код ответа сервера при попытке парсинга домашнего задания: {response.status_code}'
+        )
 
     output = response.json()
     output['date'] = {}
@@ -100,12 +110,11 @@ def get_student_id(token: str) -> int:
         'Accept-Encoding': 'zip, deflate, br',
         'Connection': 'keep-alive',
         'Auth-Token': token,
-        'Authorization': token
+        'Authorization': token,
     }
 
     response = requests.get(
-            'https://myschool.mosreg.ru/acl/api/users/profile_info',
-            headers=headers,
+        'https://myschool.mosreg.ru/acl/api/users/profile_info', headers=headers
     ).json()
     logger.debug(response)
     return response[0]['id']
@@ -134,22 +143,17 @@ def get_person_id(token: str) -> str:
     json_data = {'auth_token': token}
 
     response = requests.post(
-            'https://authedu.mosreg.ru/api/ej/acl/v1/sessions',
-            headers=headers,
-            json=json_data,
+        'https://authedu.mosreg.ru/api/ej/acl/v1/sessions',
+        headers=headers,
+        json=json_data,
     ).json()
 
     return response['person_id']
 
 
 def get_marks(
-    student_id: int,
-    token: str,
-    date: datetime = datetime.now()
-    ) -> \
-tuple[
-    tuple[
-        datetime], dict]:
+    student_id: int, token: str, date: datetime = datetime.now()
+) -> tuple[tuple[datetime], dict]:
     """
     :param student_id: id ученика
     :param date: текущая дата
@@ -160,10 +164,7 @@ tuple[
     date_in_str = datetime(datetime.now().year, date.month, date.day)
 
     day = date_in_str.isoweekday()
-    monday = date_in_str - timedelta(
-        days=(
-                    day - 1)
-        )
+    monday = date_in_str - timedelta(days=(day - 1))
 
     begin_date = monday.strftime('%Y-%m-%d')
     end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
@@ -191,31 +192,19 @@ tuple[
         'sec-ch-ua-platform': '"Windows"',
     }
 
-    params = {
-        'from': begin_date,
-        'to': end_date,
-        'student_id': student_id,
-    }
+    params = {'from': begin_date, 'to': end_date, 'student_id': student_id}
 
     response = requests.get(
-            'https://authedu.mosreg.ru/api/family/web/v1/marks',
-            params=params,
-            cookies=cookie,
-            headers=headers
+        'https://authedu.mosreg.ru/api/family/web/v1/marks',
+        params=params,
+        cookies=cookie,
+        headers=headers,
     ).json()
 
-    return (
-    monday,
-    monday + timedelta(
-        days=4
-        )), response
+    return (monday, monday + timedelta(days=4)), response
 
 
-def get_schedule(
-    token: str
-    ) -> \
-tuple[
-    datetime, dict]:
+def get_schedule(token: str) -> tuple[datetime, dict]:
     """
     :param token: токен авторизации для "Моя школа"
     :return: расписание для ученика
@@ -245,34 +234,20 @@ tuple[
     today = datetime.now().isoweekday()
     if today in [5, 6, 7]:
         schedule_day = 1
-        date = (
-                    datetime.now() + timedelta(
-                days=7 - today + 1
-                ))
+        date = datetime.now() + timedelta(days=7 - today + 1)
     else:
         schedule_day = today + 1
-        date = (
-                    datetime.now() + timedelta(
-                days=1
-                ))
-    date_str = date.strftime(
-        '%Y-%m-%d'
-        )
+        date = datetime.now() + timedelta(days=1)
+    date_str = date.strftime('%Y-%m-%d')
 
-    logger.debug(
-        f'{date} - {schedule_day}'
-        )
+    logger.debug(f'{date} - {schedule_day}')
 
-    params = {
-        'person_ids': person_id,
-        'begin_date': date_str,
-        'end_date': date_str,
-    }
+    params = {'person_ids': person_id, 'begin_date': date_str, 'end_date': date_str}
 
     response = requests.get(
-            'https://authedu.mosreg.ru/api/eventcalendar/v1/api/events',
-            headers=headers,
-            params=params
+        'https://authedu.mosreg.ru/api/eventcalendar/v1/api/events',
+        headers=headers,
+        params=params,
     ).json()
     return date, response
 
@@ -307,7 +282,10 @@ def split_day(response: dict[str, dict]) -> dict:
 
     :param response: Принимает в себя dict с домашним заданием.
     """
-    lessons_dict = {'дни': {day: [] for day in get_weekday()[:5]}, 'date': response['date']}
+    lessons_dict = {
+        'дни': {day: [] for day in get_weekday()[:5]},
+        'date': response['date'],
+    }
     for i, lesson in enumerate(response['payload'], start=1):
         date_lesson = datetime.strptime(lesson['date'], '%Y-%m-%d').isoweekday()
         date_weekday = get_weekday(date_lesson)
@@ -315,7 +293,9 @@ def split_day(response: dict[str, dict]) -> dict:
     return lessons_dict
 
 
-def homework_output(dict_hk: dict = None, need_output: bool = False) -> Union[dict, str]:
+def homework_output(
+    dict_hk: dict = None, need_output: bool = False
+) -> Union[dict, str]:
     """
     Функция для вывода домашнего задания.
 
@@ -328,19 +308,17 @@ def homework_output(dict_hk: dict = None, need_output: bool = False) -> Union[di
         day_list = []
         for lid in day:  # (lesson in day) прохожусь по урокам в дне (day)
             name = lid.get('subject_name')
-            if name == 'Труд (технология)': name = 'Технология'
-            if name == 'Музыка': name = 'МХК'
+            if name == 'Труд (технология)':
+                name = 'Технология'
+            if name == 'Музыка':
+                name = 'МХК'
 
             links = dict_hk['links'][day_name].get(name)
             homework = lid.get('homework')
             if homework in ['.', ''] or 'Не задано' in homework:
                 pass
             else:
-                lesson_info = {
-                    'name': name,
-                    'links': links,
-                    'homework': homework
-                }
+                lesson_info = {'name': name, 'links': links, 'homework': homework}
                 day_list.append(lesson_info)
             output[day_name] = day_list
     output['date'] = dict_hk['date']
@@ -353,14 +331,16 @@ def homework_output(dict_hk: dict = None, need_output: bool = False) -> Union[di
             day_of_week = get_weekday(i)
             return_output += f'\n*{day_of_week}*:\n'
             for number_lesson, lesson in enumerate(one_day, start=1):
-                return_output += f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
+                return_output += (
+                    f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
+                )
         return_output += f'-------------------------------\nВсего задано уроков: {sum(len(day) for day in output.values())}'
         return return_output
 
 
 def full_parse(
     *,
-    token = None,
+    token=None,
     student_id: int = None,
     date: datetime = datetime.now(),
     output: bool = False,
@@ -382,10 +362,10 @@ def full_parse(
 if __name__ == '__main__':
     while True:
         try:
-            mode = int(input("Введите режим: "))
+            mode = int(input('Введите режим: '))
             break
         except ValueError:
-            print("Некорректный ввод")
+            print('Некорректный ввод')
     if mode == 1:
         while True:
             try:
@@ -395,9 +375,9 @@ if __name__ == '__main__':
                 token = input('Введите токен: ')
                 break
             except ValueError:
-                print("Некорректный формат даты. Попробуйте снова.")
+                print('Некорректный формат даты. Попробуйте снова.')
         print(full_parse(token=token, date=f_date, output=True))
     elif mode == 2:
         print(full_parse(date=datetime.now(), output=True))
     else:
-        print("Режим не найден!")
+        print('Режим не найден!')
