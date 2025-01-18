@@ -55,21 +55,29 @@ async def marks(message: Message, user: UserClass):
         await message.answer('У вас отсутствует токен, пожалуйста введите команду /token, чтобы получить его!')
         return
     logger.info(f'Вызваны оценки ({message.from_user.username})')
-    response = parser.get_marks(user.student_id, user.token)
-    output = ''
+    date, response = parser.get_marks(
+        user.student_id,
+        user.token
+        )
+    output = f'Оценки за неделю {date[0].strftime("%d.%m")} - {date[1].strftime("%d.%m")}:\n'
     for lesson in response['payload']:
         day_of_week = parser.get_weekday(datetime.strptime(lesson['date'], '%Y-%m-%d').isoweekday())
         if day_of_week not in output:
-            output += f'*{day_of_week}:*\n'
-        output += f'\t- {lesson["subject_name"]}: {lesson["value"]}\n'
+            output += f'\t*{day_of_week}:*\n'
+        output += f'\t\t- _{lesson["subject_name"]}: *{lesson["value"]}*_\n'
 
+    output = re.sub(
+        r'([\[(.\])-])',
+        r'\\\1',
+        output
+        )
     await message.answer(
             output,
             reply_markup=main_button(
                 user
                 ),
             disable_notification=user.setting_notification,
-            parse_mode='Markdown'
+            parse_mode='MarkdownV2'
     )
 
 
@@ -79,9 +87,11 @@ async def schedule(message: Message, user: UserClass):
     if not user.check_token():
         await message.answer('У вас отсутствует токен, пожалуйста введите команду /token, чтобы получить его!')
         return
-    name_of_day, schedule = parser.get_schedule(user.token)
+    date, schedule = parser.get_schedule(
+        user.token
+        )
 
-    output = f'*Расписание на {name_of_day} ({datetime.now().strftime("%d.%m")}):*\n'
+    output = f'*Расписание на {parser.get_weekday(date.isoweekday())} ({date.strftime("%d.%m")}):*\n'
     for lesson in schedule['response']:
         output += f'\t- {lesson['subject_name']} ({lesson["room_number"]})\n'
     output += f'-------------------------------\nВсего уроков: {schedule['total_count']}\n'
@@ -133,12 +143,15 @@ async def homework(message: Message, user: UserClass):
         output = f'\n*Домашка на {day_name} ({begin_date + '-' + end_date if user.setting_dw else begin_date})*:\n'
         for lesson in one_day:
             if lesson['links']:
+                logger.debug(
+                    f'{user.setting_hide_link=}'
+                    )
                 if user.setting_hide_link:
                     lesson[
-                        'links'] = f"\t└ {'\n\t\t\t'.join(f"{re.sub(r'([\[(.\])=~_#-])', r'\\\1', exam)}" for i, exam in enumerate(lesson['links'], start=1))}\n"
+                        'links'] = f"\t└ {'\n\t\t\t'.join(f"[ЦДЗ {i}]({exam})" for i, exam in enumerate(lesson['links'], start=1))}\n"
                 else:
                     lesson[
-                        'links'] = f"\t├ {'\n\t\t\t'.join(f"[ЦДЗ {i}]({exam})" for i, exam in enumerate(lesson['links'], start=1))}\n"
+                        'links'] = f"\t└ {'\n\t\t\t'.join(f"{re.sub(r'([=_])', r'\\\1', exam)}" for i, exam in enumerate(lesson['links'], start=1))}\n"
             else:
                 lesson['links'] = ''
             if not link and 'https://' in lesson['homework']:
@@ -148,11 +161,11 @@ async def homework(message: Message, user: UserClass):
         output = '\n'.join(
                 [
                     re.sub(
-                        r'([\[(.\])#-])',
+                            r'([\[(.\])#~-])',
                         r'\\\1',
                         line
-                        )
-                    if not 'https://' in line
+                    )
+                    if not '[ЦДЗ' in line
                     else line
                     for line in output.split('\n')
                 ]

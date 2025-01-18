@@ -142,7 +142,14 @@ def get_person_id(token: str) -> str:
     return response['person_id']
 
 
-def get_marks(student_id: int, token: str, date: datetime = datetime.now()) -> dict:
+def get_marks(
+    student_id: int,
+    token: str,
+    date: datetime = datetime.now()
+    ) -> \
+tuple[
+    tuple[
+        datetime], dict]:
     """
     :param student_id: id ученика
     :param date: текущая дата
@@ -153,12 +160,15 @@ def get_marks(student_id: int, token: str, date: datetime = datetime.now()) -> d
     date_in_str = datetime(datetime.now().year, date.month, date.day)
 
     day = date_in_str.isoweekday()
-    monday = date_in_str - timedelta(days=(day - 1)) if day < 6 else date_in_str - timedelta(days=(day - 8))
+    monday = date_in_str - timedelta(
+        days=(
+                    day - 1)
+        )
 
     begin_date = monday.strftime('%Y-%m-%d')
     end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
 
-    logger.debug(f'{begin_date} - {end_date}')
+    # logger.debug(f'{begin_date} - {end_date}')
 
     cookie = {'aupd_token': token}
 
@@ -194,11 +204,18 @@ def get_marks(student_id: int, token: str, date: datetime = datetime.now()) -> d
             headers=headers
     ).json()
 
-    logger.debug(response)
-    return response
+    return (
+    monday,
+    monday + timedelta(
+        days=4
+        )), response
 
 
-def get_schedule(token: str) -> tuple[str, dict]:
+def get_schedule(
+    token: str
+    ) -> \
+tuple[
+    datetime, dict]:
     """
     :param token: токен авторизации для "Моя школа"
     :return: расписание для ученика
@@ -227,16 +244,29 @@ def get_schedule(token: str) -> tuple[str, dict]:
 
     today = datetime.now().isoweekday()
     if today in [5, 6, 7]:
-        schedule_day = 7 - today + 1
-        date = (datetime.now() + timedelta(days=schedule_day)).strftime('%Y-%m-%d')
+        schedule_day = 1
+        date = (
+                    datetime.now() + timedelta(
+                days=7 - today + 1
+                ))
     else:
         schedule_day = today + 1
-        date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+        date = (
+                    datetime.now() + timedelta(
+                days=1
+                ))
+    date_str = date.strftime(
+        '%Y-%m-%d'
+        )
+
+    logger.debug(
+        f'{date} - {schedule_day}'
+        )
 
     params = {
         'person_ids': person_id,
-        'begin_date': date,
-        'end_date': date,
+        'begin_date': date_str,
+        'end_date': date_str,
     }
 
     response = requests.get(
@@ -244,7 +274,7 @@ def get_schedule(token: str) -> tuple[str, dict]:
             headers=headers,
             params=params
     ).json()
-    return get_weekday(schedule_day), response
+    return date, response
 
 
 def get_links_in_lesson(response: dict[str, dict]) -> dict:
