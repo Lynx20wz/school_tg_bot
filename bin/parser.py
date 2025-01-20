@@ -92,8 +92,8 @@ def get_homework_from_website(
 
     output = response.json()
     output['date'] = {}
-    output['date']['begin_date'] = datetime.strptime(begin_date, '%Y-%m-%d')
-    output['date']['end_date'] = datetime.strptime(end_date, '%Y-%m-%d')
+    output['date']['begin_date'] = datetime.isoformat(datetime.strptime(begin_date, '%Y-%m-%d'))
+    output['date']['end_date'] = datetime.isoformat(datetime.strptime(end_date, '%Y-%m-%d'))
     return output
 
 

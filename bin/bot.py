@@ -155,8 +155,10 @@ async def homework(message: Message, user: UserClass):
 
     async def get_output_for_day(link: bool, day_name: str) -> str:
         one_day = hk.get(day_name)
-        begin_date = hk.get('date').get('begin_date').strftime('%d.%m')
-        end_date = hk.get('date').get('end_date').strftime('%d.%m')
+        begin_date, end_date = map(
+            lambda x: datetime.fromisoformat(x).strftime('%d.%m'),
+            hk.get('date', {}).values(),
+        )
         output = f'\n*Домашка на {day_name} ({begin_date + "-" + end_date if user.setting_dw else begin_date})*:\n'
         for lesson in one_day:
             if lesson['links']:

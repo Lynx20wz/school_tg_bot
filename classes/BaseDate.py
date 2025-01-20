@@ -104,9 +104,6 @@ class BaseDate:
                 if all(data):
                     timestamp, hk = data
                     hk = json.loads(hk)
-                    hk['date'] = {
-                        k: datetime.fromisoformat(v) for k, v in hk['date'].items()
-                    }
                     return datetime.fromisoformat(timestamp), hk
                 else:
                     return None, None
@@ -148,9 +145,6 @@ class BaseDate:
                 if result is None:
                     await self.set_homework_id(username, homework)
                 else:
-                    homework['date'] = {
-                        k: v.isoformat() for k, v in homework['date'].items()
-                    }
                     await db.execute(
                         """
                             UPDATE homework_cache
