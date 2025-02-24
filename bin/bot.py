@@ -22,11 +22,36 @@ from bin import (
     social_networks_button,
     make_setting_button,
     ExpiredToken,
+    NoToken,
+    ServerError
 )
 from handlers import Handlers
 
 bot = Bot(API_BOT)
 dp = Dispatcher()
+
+async def _exception_handler(user: UserClass, message: Message, function: callable,  *args, **kwargs):
+    """
+
+    Args:
+        user (UserClass): A user for which the function is called
+        message (Message): A message for which the function is called
+        function (callable): The function to be called
+
+    Returns:
+        Either notify the user that an exception has happened
+        or return the result of the function completion
+    """
+    try:
+        if not user.token:
+            raise NoToken()
+        result  = function(token=user.token, *args, **kwargs)
+    except (ExpiredToken, NoToken, ServerError) as e:
+        logger.warning(f'{function.__name__} | {user.username}: Произошла ошибка: {e}')
+        await message.answer(e.args[0])
+        return
+    return result
+
 
 
 async def restart():
@@ -63,23 +88,21 @@ async def start(message: Message, user: UserClass):
 @dp.message(F.text == 'Оценки 📝')
 @UserClass.get_user()
 async def marks(message: Message, user: UserClass):
-    if not user.check_token():
-        await message.answer(
-            'У вас отсутствует токен, пожалуйста введите команду /token, чтобы получить его!'
-        )
-        return
     logger.info(f'Вызваны оценки ({message.from_user.username})')
-    date, response = parser.get_marks(user.student_id, user.token)
-    output = (
-        f'Оценки за неделю {date[0].strftime("%d.%m")} - {date[1].strftime("%d.%m")}:\n'
-    )
-    for lesson in response['payload']:
-        day_of_week = parser.get_weekday(
-            datetime.strptime(lesson['date'], '%Y-%m-%d').isoweekday()
-        )
-        if day_of_week not in output:
-            output += f'\t*{day_of_week}:*\n'
-        output += f'\t\t- _{lesson["subject_name"]}: *{lesson["value"]}*_\n'
+    response = await _exception_handler(user, message, parser.get_marks, user.student_id)
+    if not response:
+        return
+    date, response = response
+    output = f'Оценки за неделю {date[0].strftime("%d.%m")} - {date[1].strftime("%d.%m")}:\n'
+
+    if response['payload']:
+        for lesson in response['payload']:
+            day_of_week = parser.get_weekday(datetime.strptime(lesson['date'], '%Y-%m-%d').isoweekday())
+            if day_of_week not in output:
+                output += f'\t*{day_of_week}:*\n'
+            output += f'\t\t- _{lesson["subject_name"]}: *{lesson["value"]}*_\n'
+    else:
+        output += '\t└ Оценки за этот период отсутствуют'
 
     output = re.sub(r'([\[(.\])-])', r'\\\1', output)
     await message.answer(
@@ -93,65 +116,49 @@ async def marks(message: Message, user: UserClass):
 @dp.message(F.text == 'Расписание 📅')
 @UserClass.get_user()
 async def schedule(message: Message, user: UserClass):
-    if not user.check_token():
-        await message.answer(
-            'У вас отсутствует токен, пожалуйста введите команду /token, чтобы получить его!'
-        )
-        return
-    date, schedule = parser.get_schedule(user.token)
-
-    output = f'*Расписание на {parser.get_weekday(date.isoweekday())} ({date.strftime("%d.%m")}):*\n'
-    for lesson in schedule['response']:
-        output += f'\t- {lesson["subject_name"]} ({lesson["room_number"]})\n'
-    output += (
-        f'-------------------------------\nВсего уроков: {schedule["total_count"]}\n'
-    )
     logger.info(f'Вызвано расписание ({message.from_user.username})')
-    await message.answer(output, parse_mode='Markdown')
+    response = await _exception_handler(user, message, parser.get_schedule)
+    if not response:
+        return
+    date, schedule = response
+
+    output = (
+            f'*Расписание на {parser.get_weekday(date.isoweekday())} ({date.strftime("%d.%m")}):*\n'
+            + '\n'.join(f'\t{"├└"[i == len(schedule["response"]) - 1]} {lesson["subject_name"]} ({lesson["room_number"]})'
+            for i, lesson in enumerate(schedule['response']))
+    )
+
+    output += f'\n{'-' * min(58, len(output))}\nВсего уроков: {schedule["total_count"]}\n'
+    await message.answer(re.sub(r'([\[(.\])-])', r'\\\1', output), parse_mode='MarkdownV2')
 
 
 @dp.message(F.text == 'Домашнее задание 📓')
 @UserClass.get_user()
 async def homework(message: Message, user: UserClass):
     """
-    Высылает текст домашнего задания в соответствии с настройками пользователя.
+    Sends the text of homework in accordance with the user settings.
 
-    :param message: Полученное сообщение.
-    :param user: Объект пользователя.
+    : Param Message: received message.
+    : Param User: User Object.
     """
 
     logger.info(f'Вызвана домашка ({message.from_user.username})')
     link: bool = False
 
-    # Получаем токен
     msg = await message.answer('Ожидайте... ⌛')
-    if not user.check_token():
-        await message.answer(
-            'У вас отсутствует токен, пожалуйста введите команду /token, чтобы получить его!'
-        )
-        return
 
     # Получаем домашку
     pre_hk = await db.get_homework(user.username)
     if all(pre_hk) and (datetime.now() - pre_hk[0]) < timedelta(hours=1):
         hk = pre_hk[1]
     else:
-        try:
-            hk = parser.full_parse(token=user.token, student_id=user.student_id)
-            await db.update_homework_cache(user.username, hk)
-            logger.info('Домашка была обновлена')
-        except ExpiredToken as e:
-            logger.warning(f'Недействительный токен: {e}')
-            await message.answer(
-                'У вас недействительный токен, пожалуйста введите команду /token, чтобы обновить его!'
-            )
+        hk = await _exception_handler(user, message, parser.full_parse)
+        if not hk:
+            await msg.delete()
             return
-        except ValueError as e:
-            logger.warning(f'Произошла ошибка при получении дз: {e}')
-            await message.answer(
-                'Произошла ошибка при получении дз. Повторите попытку позже.'
-            )
-            return
+
+        await db.save_homework(user.username, hk)
+        await message.answer('Домашка успешно обновлена!')
 
     async def get_output_for_day(link: bool, day_name: str) -> str:
         one_day = hk.get(day_name)
@@ -284,9 +291,7 @@ async def change_delivery(message: Message, user: UserClass):
         user.setting_dw = True
     murkup = make_setting_button(user)
     await user.save_settings(setting_dw=user.setting_dw)
-    logger.info(
-        f'Изменены настройки выдачи ({message.from_user.username} - {user.setting_dw} ({user.data}))'
-    )
+    logger.info(f'Изменены настройки выдачи ({message.from_user.username} - {user.setting_dw} ({user.data}))')
     await message.answer(
         'Настройки успешно изменены!',
         reply_markup=murkup,
@@ -303,9 +308,7 @@ async def change_notification(message: Message, user: UserClass):
         user.setting_notification = True
     murkup = make_setting_button(user)
     await user.save_settings(setting_notification=user.setting_notification)
-    logger.info(
-        f'Изменены настройки уведомлений ({message.from_user.username} - {user.setting_notification} ({user.data}))'
-    )
+    logger.info(f'Изменены настройки уведомлений ({message.from_user.username} - {user.setting_notification} ({user.data}))')
     await message.answer(
         'Настройки успешно изменены!',
         reply_markup=murkup,

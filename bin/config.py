@@ -2,7 +2,7 @@ __all__ = ('BD_PATH', 'BD_BACKUP_PATH', 'API_BOT', 'ADMIN_IDS', 'logger')
 
 from sys import stdout, exit
 
-from environs import *
+from environs import Env, EnvError
 from loguru import logger
 
 env = Env()

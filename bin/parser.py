@@ -4,9 +4,36 @@ from typing import Union
 
 import requests
 
-from bin import ExpiredToken, logger
+from bin import ExpiredToken, ServerError, logger
 
 
+def check_response(func:callable):
+    """
+    Wrapper for function, which check for token and status code in response
+
+    Args:
+        func (callable): Function, which need token for request and returns requests.Response
+    Returns:
+        Server response as a dictionary
+    Raises:
+        NoToken: when user doesn't have token
+        ExpiredToken: when token is expired
+        ServerError: when request failed for other reasons
+    """
+
+    def wrapped(*args, **kwargs):
+        gen = func(*args, **kwargs)
+        response = next(gen)
+
+        if response.status_code == 401:
+            logger.warning(f'Срок действия токена истёк!: {response.status_code}\n{response.text}')
+            raise ExpiredToken()
+        elif response.status_code >= 400:
+            logger.warning(f'Произошла ошибка: {response.status_code}\n{response.text}')
+            raise ServerError()
+        else:
+            return next(gen)
+    return wrapped
 def get_weekday(number: int = None) -> Union[str, list[str]]:
     weekdays = {
         1: 'Понедельник',
@@ -22,7 +49,7 @@ def get_weekday(number: int = None) -> Union[str, list[str]]:
     else:
         return weekdays.get(number)
 
-
+@check_response
 def get_homework_from_website(
     token: str, student_id: int, date: datetime = datetime.now()
 ) -> dict:
@@ -77,26 +104,15 @@ def get_homework_from_website(
         cookies=cookie,
         headers=headers,
     )
-    if response.status_code == 401:
-        logger.error(
-            f'Токен пользователя не действителен: {response.status_code}\n{response.text}'
-        )
-        raise ExpiredToken('Токен пользователя не действителен')
-    elif response.status_code >= 400:
-        logger.error(
-            f'Код ответа сервера при попытке парсинга домашнего задания: {response.status_code}\n{response.text}'
-        )
-        raise ValueError(
-            f'Код ответа сервера при попытке парсинга домашнего задания: {response.status_code}'
-        )
+    yield response
 
     output = response.json()
     output['date'] = {}
     output['date']['begin_date'] = datetime.isoformat(datetime.strptime(begin_date, '%Y-%m-%d'))
     output['date']['end_date'] = datetime.isoformat(datetime.strptime(end_date, '%Y-%m-%d'))
-    return output
+    yield output
 
-
+@check_response
 def get_student_id(token: str) -> int:
     """
     :param token: токен авторизации для "Моя школа"
@@ -115,11 +131,12 @@ def get_student_id(token: str) -> int:
 
     response = requests.get(
         'https://myschool.mosreg.ru/acl/api/users/profile_info', headers=headers
-    ).json()
-    logger.debug(response)
-    return response[0]['id']
+    )
+    yield response
 
+    yield response.json()[0]['id']
 
+@check_response
 def get_person_id(token: str) -> str:
     headers = {
         'Accept': 'application/json, text/plain, */*',
@@ -146,11 +163,12 @@ def get_person_id(token: str) -> str:
         'https://authedu.mosreg.ru/api/ej/acl/v1/sessions',
         headers=headers,
         json=json_data,
-    ).json()
+    )
+    yield response
 
-    return response['person_id']
+    yield response.json()['person_id']
 
-
+@check_response
 def get_marks(
     student_id: int, token: str, date: datetime = datetime.now()
 ) -> tuple[tuple[datetime], dict]:
@@ -199,11 +217,12 @@ def get_marks(
         params=params,
         cookies=cookie,
         headers=headers,
-    ).json()
+    )
+    yield response
 
-    return (monday, monday + timedelta(days=4)), response
+    yield (monday, monday + timedelta(days=4)), response.json()
 
-
+@check_response
 def get_schedule(token: str) -> tuple[datetime, dict]:
     """
     :param token: токен авторизации для "Моя школа"
@@ -248,8 +267,10 @@ def get_schedule(token: str) -> tuple[datetime, dict]:
         'https://authedu.mosreg.ru/api/eventcalendar/v1/api/events',
         headers=headers,
         params=params,
-    ).json()
-    return date, response
+    )
+    yield response
+
+    yield date, response.json()
 
 
 def get_links_in_lesson(response: dict[str, dict]) -> dict:

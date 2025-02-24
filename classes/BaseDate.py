@@ -124,7 +124,7 @@ class BaseDate:
             )
             await db.commit()
 
-    async def update_homework_cache(self, username: str, homework: dict):
+    async def save_homework(self, username: str, homework: dict):
         async with aiosqlite.connect(self.path) as db:
             async with db.execute(
                 """

@@ -30,7 +30,7 @@ async def end_registration(message, user, state: FSMContext):
         await state.update_data(token=message.text)
         data = await state.get_data()
         user.token = data.get('token')
-        user.student_id = get_student_id(user.token)
+        user.student_id = get_student_id(token=user.token)
         await db.update_user(user)
         await message.answer(
             f'{user.username}, ваш токен успешно зарегистрирован!',
