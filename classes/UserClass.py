@@ -5,8 +5,7 @@ from typing import TypeVar, ParamSpec
 
 from aiogram.types import Message
 
-from bin import username_button
-from bin.config import logger
+from bin import username_button, logger
 from classes.BaseDate import db
 
 T = TypeVar('T')
@@ -61,16 +60,16 @@ class UserClass:
         self.homework_id = homework_id
 
         asyncio.create_task(
-            db.add_user(
-                (
-                    username,
-                    userid,
-                    debug,
-                    setting_dw,
-                    setting_notification,
-                    setting_hide_link,
+                db.add_user(
+                        (
+                            username,
+                            userid,
+                            debug,
+                            setting_dw,
+                            setting_notification,
+                            setting_hide_link,
+                        )
                 )
-            )
         )
 
         async def update_existing_user():
@@ -117,7 +116,7 @@ class UserClass:
                     user = message
                 else:
                     existing_user = await UserClass.get_user_from_massive(
-                        message.from_user.username, 2
+                            message.from_user.username, 2
                     )
                     if existing_user:
                         user = existing_user
@@ -127,25 +126,25 @@ class UserClass:
                         if user_db is not None:
                             try:
                                 user = UserClass(
-                                    message.from_user.username,
-                                    message.from_user.id,
-                                    user_db.get('debug', False),
-                                    user_db.get('setting_dw', True),
-                                    user_db.get('setting_notification', True),
-                                    user_db.get('setting_hide_link', False),
-                                    user_db.get('token'),
-                                    user_db.get('student_id'),
-                                    user_db.get('homework'),
+                                        message.from_user.username,
+                                        message.from_user.id,
+                                        user_db.get('debug', False),
+                                        user_db.get('setting_dw', True),
+                                        user_db.get('setting_notification', True),
+                                        user_db.get('setting_hide_link', False),
+                                        user_db.get('token'),
+                                        user_db.get('student_id'),
+                                        user_db.get('homework'),
                                 )
                             except AttributeError:
                                 await message.answer(
-                                    'У вас отсутствует имя пользователя! Пожалуйста добавьте его в настройках аккаунта.',
-                                    reply_markup=username_button(),
+                                        'У вас отсутствует имя пользователя! Пожалуйста добавьте его в настройках аккаунта.',
+                                        reply_markup=username_button(),
                                 )
                                 return
                         else:
                             user = UserClass(
-                                message.from_user.username, message.from_user.id
+                                    message.from_user.username, message.from_user.id
                             )
 
                 return await func(message=message, user=user, *args, **kwargs)

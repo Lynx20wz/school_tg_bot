@@ -1,6 +1,6 @@
 from aiogram.filters import BaseFilter
 
-from bin.config import ADMIN_IDS
+from bin import ADMIN_IDS
 
 
 class IsAdmin(BaseFilter):

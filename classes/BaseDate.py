@@ -5,7 +5,7 @@ from typing import Optional, Union
 
 import aiosqlite
 
-from bin.config import BD_PATH, logger, BD_BACKUP_PATH
+from bin import BD_PATH, logger, BD_BACKUP_PATH
 
 
 class BaseDate:
@@ -18,18 +18,18 @@ class BaseDate:
             db.row_factory = aiosqlite.Row
             while True:
                 async with db.execute(
-                    'SELECT userid FROM users WHERE userid = ?', (user[1],)
+                        'SELECT userid FROM users WHERE userid = ?', (user[1],)
                 ) as cursor:
                     res = await cursor.fetchone()
                     if res:
                         return dict(res)
                 logger.info(f'{user[0]} был добавлен в базу данных')
                 await db.execute(
-                    """
-                        INSERT INTO users (username, userid, debug, setting_dw, setting_notification, setting_hide_link) 
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                    (*user,),
+                        """
+                            INSERT INTO users (username, userid, debug, setting_dw, setting_notification, setting_hide_link) 
+                            VALUES (?, ?, ?, ?, ?, ?)
+                            """,
+                        (*user,),
                 )
                 await db.commit()
 
@@ -46,7 +46,7 @@ class BaseDate:
 
             if username:
                 async with db.execute(
-                    'SELECT * FROM users WHERE username = ?', (username,)
+                        'SELECT * FROM users WHERE username = ?', (username,)
                 ) as cursor:
                     user = await cursor.fetchone()
                     return dict(user) if user else None
@@ -62,24 +62,24 @@ class BaseDate:
         async with aiosqlite.connect(self.path) as db:
             db.row_factory = aiosqlite.Row
             await db.executescript(
-                """
-                    CREATE TABLE IF NOT EXISTS users (
-                        userid INTEGER PRIMARY KEY,
-                        username TEXT NOT NULL,
-                        debug INTEGER DEFAULT 0,
-                        setting_dw INTEGER DEFAULT 0,
-                        setting_notification INTEGER DEFAULT 0,
-                        setting_hide_link INTEGER DEFAULT 0,
-                        token TEXT,
-                        student_id INTEGER,
-                        homework_id INTEGER REFERENCES homework_cache(id)
-                    );
-                    CREATE TABLE IF NOT EXISTS homework_cache (
-                        id INTEGER PRIMARY KEY,
-                        timestamp INTEGER,
-                        cache TEXT
-                    );
                     """
+                        CREATE TABLE IF NOT EXISTS users (
+                            userid INTEGER PRIMARY KEY,
+                            username TEXT NOT NULL,
+                            debug INTEGER DEFAULT 0,
+                            setting_dw INTEGER DEFAULT 0,
+                            setting_notification INTEGER DEFAULT 0,
+                            setting_hide_link INTEGER DEFAULT 0,
+                            token TEXT,
+                            student_id INTEGER,
+                            homework_id INTEGER REFERENCES homework_cache(id)
+                        );
+                        CREATE TABLE IF NOT EXISTS homework_cache (
+                            id INTEGER PRIMARY KEY,
+                            timestamp INTEGER,
+                            cache TEXT
+                        );
+                        """
             )
 
             if load_backup and not exists and os.path.exists(self.backup_path):
@@ -91,13 +91,13 @@ class BaseDate:
     async def get_homework(self, username: str) -> Optional[tuple[datetime, dict]]:
         async with aiosqlite.connect(self.path) as db:
             async with db.execute(
-                """
-                    SELECT hc.timestamp, hc.cache
-                    FROM users u
-                    INNER JOIN homework_cache hc ON hc.id = u.homework_id
-                    WHERE u.username = ?;
-                    """,
-                (username,),
+                    """
+                        SELECT hc.timestamp, hc.cache
+                        FROM users u
+                        INNER JOIN homework_cache hc ON hc.id = u.homework_id
+                        WHERE u.username = ?;
+                        """,
+                    (username,),
             ) as cursor:
                 data = await cursor.fetchone()
 
@@ -111,31 +111,31 @@ class BaseDate:
     async def update_user(self, user):
         async with aiosqlite.connect(self.path) as db:
             await db.execute(
-                'UPDATE users SET debug = ?, setting_dw = ?, setting_notification = ?, setting_hide_link = ?, token = ?, student_id = ? WHERE username = ?',
-                (
-                    user.debug,
-                    user.setting_dw,
-                    user.setting_notification,
-                    user.setting_hide_link,
-                    user.token,
-                    user.student_id,
-                    user.username,
-                ),
+                    'UPDATE users SET debug = ?, setting_dw = ?, setting_notification = ?, setting_hide_link = ?, token = ?, student_id = ? WHERE username = ?',
+                    (
+                        user.debug,
+                        user.setting_dw,
+                        user.setting_notification,
+                        user.setting_hide_link,
+                        user.token,
+                        user.student_id,
+                        user.username,
+                    ),
             )
             await db.commit()
 
     async def save_homework(self, username: str, homework: dict):
         async with aiosqlite.connect(self.path) as db:
             async with db.execute(
-                """
-                    SELECT id
-                    FROM homework_cache
-                    WHERE id = (
-                        SELECT homework_id
-                        FROM users
-                        WHERE username = ?
-                    )""",
-                (username,),
+                    """
+                        SELECT id
+                        FROM homework_cache
+                        WHERE id = (
+                            SELECT homework_id
+                            FROM users
+                            WHERE username = ?
+                        )""",
+                    (username,),
             ) as cursor:
                 result = await cursor.fetchone()
                 # logger.debug(result)
@@ -146,20 +146,20 @@ class BaseDate:
                     await self.set_homework_id(username, homework)
                 else:
                     await db.execute(
-                        """
-                            UPDATE homework_cache
-                            SET timestamp = ?, cache = ?
-                            WHERE id = (
-                                SELECT homework_id
-                                FROM users 
-                                WHERE username = ?
-                            )
-                            """,
-                        (
-                            datetime.now().isoformat(),
-                            json.dumps(homework, ensure_ascii=False),
-                            username,
-                        ),
+                            """
+                                UPDATE homework_cache
+                                SET timestamp = ?, cache = ?
+                                WHERE id = (
+                                    SELECT homework_id
+                                    FROM users 
+                                    WHERE username = ?
+                                )
+                                """,
+                            (
+                                datetime.now().isoformat(),
+                                json.dumps(homework, ensure_ascii=False),
+                                username,
+                            ),
                     )
                     await db.commit()
 
@@ -169,32 +169,32 @@ class BaseDate:
             logger.debug(homework['date'])
             homework_str = json.dumps(homework, ensure_ascii=False)
             async with db.execute(
-                'SELECT id FROM homework_cache WHERE cache = ?', (homework_str,)
+                    'SELECT id FROM homework_cache WHERE cache = ?', (homework_str,)
             ) as cursor:
                 result = await cursor.fetchone()
                 # logger.debug(f'{result=}, {homework_str=}')
                 if result:
                     await db.execute(
-                        'UPDATE users SET homework_id = ? WHERE username = ?',
-                        (result[0], username),
+                            'UPDATE users SET homework_id = ? WHERE username = ?',
+                            (result[0], username),
                     )
                 else:
                     await db.execute(
-                        f'INSERT INTO homework_cache (timestamp,  cache) VALUES (?, ?)',
-                        (datetime.now().strftime('%Y-%m-%d %H:%M'), homework_str),
+                            f'INSERT INTO homework_cache (timestamp,  cache) VALUES (?, ?)',
+                            (datetime.now().strftime('%Y-%m-%d %H:%M'), homework_str),
                     )
                     last_row_id = await db.execute('SELECT last_insert_rowid()')
                     homework_id = (await last_row_id.fetchone())[0]
                     await db.execute(
-                        'UPDATE users SET homework_id = ? WHERE username = ?',
-                        (homework_id, username),
+                            'UPDATE users SET homework_id = ? WHERE username = ?',
+                            (homework_id, username),
                     )
                 await db.commit()
 
     async def get_token(self, username: str) -> str:
         async with aiosqlite.connect(self.path) as db:
             async with db.execute(
-                'SELECT token FROM users WHERE username = ?', (username,)
+                    'SELECT token FROM users WHERE username = ?', (username,)
             ) as result:
                 token = await result.fetchone()
                 if token:

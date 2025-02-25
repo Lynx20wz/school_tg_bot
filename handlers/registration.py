@@ -17,9 +17,9 @@ class GetToken(StatesGroup):
 async def registration_user(message, state: FSMContext):
     await state.set_state(GetToken.token)
     await message.answer(
-        'Пожалуйста нажмите на кнопку ниже, скопируйте и отправьте нам токен! (токен начинается с `eyJhb`)\n\nЕсли ты получил другой текст, то сначала перейди по второй кнопке и зарегистрируйся, а потом на первую жми.',
-        reply_markup=token_button(),
-        parse_mode='Markdown',
+            'Пожалуйста нажмите на кнопку ниже, скопируйте и отправьте нам токен! (токен начинается с `eyJhb`)\n\nЕсли ты получил другой текст, то сначала перейди по второй кнопке и зарегистрируйся, а потом на первую жми.',
+            reply_markup=token_button(),
+            parse_mode='Markdown',
     )
 
 
@@ -33,8 +33,8 @@ async def end_registration(message, user, state: FSMContext):
         user.student_id = get_student_id(token=user.token)
         await db.update_user(user)
         await message.answer(
-            f'{user.username}, ваш токен успешно зарегистрирован!',
-            reply_markup=main_button(user),
+                f'{user.username}, ваш токен успешно зарегистрирован!',
+                reply_markup=main_button(user),
         )
         await state.clear()
     else:

@@ -22,11 +22,11 @@ log_format = '{time:H:mm:ss} | "{function}" | {line} ({module}) | <level>{level}
 
 logger.remove()
 logger.add(
-    sink=stdout,
-    format=log_format,
-    backtrace=True,
-    diagnose=True,
-    level='DEBUG',
-    colorize=True,
+        sink=stdout,
+        format=log_format,
+        backtrace=True,
+        diagnose=True,
+        level='DEBUG',
+        colorize=True,
 )
 logger.add(format=log_format, sink='temp//log.log', level='INFO', mode='w')

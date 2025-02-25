@@ -30,7 +30,8 @@ from handlers import Handlers
 bot = Bot(API_BOT)
 dp = Dispatcher()
 
-async def _exception_handler(user: UserClass, message: Message, function: callable,  *args, **kwargs):
+
+async def _exception_handler(user: UserClass, message: Message, function: callable, *args, **kwargs):
     """
 
     Args:
@@ -45,7 +46,7 @@ async def _exception_handler(user: UserClass, message: Message, function: callab
     try:
         if not user.token:
             raise NoToken()
-        result  = function(token=user.token, *args, **kwargs)
+        result = function(token=user.token, *args, **kwargs)
     except (ExpiredToken, NoToken, ServerError) as e:
         logger.warning(f'{function.__name__} | {user.username}: Произошла ошибка: {e}')
         await message.answer(e.args[0])
@@ -53,20 +54,19 @@ async def _exception_handler(user: UserClass, message: Message, function: callab
     return result
 
 
-
 async def restart():
     users = await db.restart_bot(False if '-back' in sys.argv else True)
     for user in users:
         UserClass(
-            user.get('username'),
-            user.get('userid'),
-            bool(user.get('debug', False)),
-            bool(user.get('setting_dw', False)),
-            bool(user.get('setting_notification', True)),
-            bool(user.get('setting_hide_link', False)),
-            user.get('token'),
-            user.get('student_id'),
-            user.get('homework_id'),
+                user.get('username'),
+                user.get('userid'),
+                bool(user.get('debug', False)),
+                bool(user.get('setting_dw', False)),
+                bool(user.get('setting_notification', True)),
+                bool(user.get('setting_hide_link', False)),
+                user.get('token'),
+                user.get('student_id'),
+                user.get('homework_id'),
         )
     logger.debug('Бот рестарт!')
 
@@ -78,10 +78,10 @@ async def start(message: Message, user: UserClass):
     logger.info(f'Бота запустили ({message.from_user.username})')
     with open('Логирование.png', 'rb') as file:
         await message.answer_photo(
-            photo=BufferedInputFile(file.read(), filename='Логирование'),
-            caption="""Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д. Найдёте ошибки сообщите: @Lynx20wz)
+                photo=BufferedInputFile(file.read(), filename='Логирование'),
+                caption="""Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д. Найдёте ошибки сообщите: @Lynx20wz)
                 \nP.S: Также должен сказать, что в целях отлова ошибок я веду логирование, то есть, я вижу какую функцию вы запустили и ваш никнейм в телеграм (на фото видно).""",
-            reply_markup=main_button(user),
+                reply_markup=main_button(user),
         )
 
 
@@ -106,10 +106,10 @@ async def marks(message: Message, user: UserClass):
 
     output = re.sub(r'([\[(.\])-])', r'\\\1', output)
     await message.answer(
-        output,
-        reply_markup=main_button(user),
-        disable_notification=user.setting_notification,
-        parse_mode='MarkdownV2',
+            output,
+            reply_markup=main_button(user),
+            disable_notification=user.setting_notification,
+            parse_mode='MarkdownV2',
     )
 
 
@@ -124,8 +124,10 @@ async def schedule(message: Message, user: UserClass):
 
     output = (
             f'*Расписание на {parser.get_weekday(date.isoweekday())} ({date.strftime("%d.%m")}):*\n'
-            + '\n'.join(f'\t{"├└"[i == len(schedule["response"]) - 1]} {lesson["subject_name"]} ({lesson["room_number"]})'
-            for i, lesson in enumerate(schedule['response']))
+            + '\n'.join(
+            f'\t{"├└"[i == len(schedule["response"]) - 1]} {lesson["subject_name"]} ({lesson["room_number"]})'
+            for i, lesson in enumerate(schedule['response'])
+    )
     )
 
     output += f'\n{'-' * min(58, len(output))}\nВсего уроков: {schedule["total_count"]}\n'
@@ -163,8 +165,8 @@ async def homework(message: Message, user: UserClass):
     async def get_output_for_day(link: bool, day_name: str) -> str:
         one_day = hk.get(day_name)
         begin_date, end_date = map(
-            lambda x: datetime.fromisoformat(x).strftime('%d.%m'),
-            hk.get('date', {}).values(),
+                lambda x: datetime.fromisoformat(x).strftime('%d.%m'),
+                hk.get('date', {}).values(),
         )
         output = f'\n*Домашка на {day_name} ({begin_date + "-" + end_date if user.setting_dw else begin_date})*:\n'
         for lesson in one_day:
@@ -185,10 +187,10 @@ async def homework(message: Message, user: UserClass):
             output += f'*• {lesson["name"]}:*\n\t{"├" if lesson["links"] else "└"} _{lesson["homework"].strip()}_\n{lesson["links"]}'
         output += f'{"-" * min(58, len(max(output.split("\n"), key=len)))}\nВсего задано уроков: {len(one_day)}'
         output = '\n'.join(
-            [
-                re.sub(r'([\[(.\])#~-])', r'\\\1', line) if not '[ЦДЗ' in line else line
-                for line in output.split('\n')
-            ]
+                [
+                    re.sub(r'([\[(.\])#~-])', r'\\\1', line) if not '[ЦДЗ' in line else line
+                    for line in output.split('\n')
+                ]
         )
         return output
 
@@ -214,33 +216,33 @@ async def homework(message: Message, user: UserClass):
 
     if link:
         murkup = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text='Бот для решения ЦДЗ',
-                        url='https://t.me/solving_CDZ_tests_bot',
-                    )
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                                text='Бот для решения ЦДЗ',
+                                url='https://t.me/solving_CDZ_tests_bot',
+                        )
+                    ]
                 ]
-            ]
         )
         await message.answer(
-            output,
-            parse_mode='MarkdownV2',
-            reply_markup=murkup,
-            disable_notification=user.setting_notification,
+                output,
+                parse_mode='MarkdownV2',
+                reply_markup=murkup,
+                disable_notification=user.setting_notification,
         )
     else:
         await message.answer(
-            output,
-            parse_mode='MarkdownV2',
-            disable_notification=user.setting_notification,
+                output,
+                parse_mode='MarkdownV2',
+                disable_notification=user.setting_notification,
         )
 
 
 @dp.message(F.text == 'Соц. сети класса 💬')
 async def social_networks(message):
     await message.answer(
-        text=r"""
+            text=r"""
 Конечно! Держи:
 
 [Официальная группа в WhatsApp](https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg) (создатель @Lynx20wz)
@@ -248,8 +250,8 @@ async def social_networks(message):
 
 Если ссылки не работают обратиться к @Lynx20wz)
 """,
-        reply_markup=social_networks_button(),
-        parse_mode='Markdown',
+            reply_markup=social_networks_button(),
+            parse_mode='Markdown',
     )
 
 
@@ -260,7 +262,7 @@ async def settings(message: Message, user: UserClass):
     logger.info(f'Вызваны настройки ({message.from_user.username})')
     murkup = make_setting_button(user)
     await message.answer(
-        text=r"""
+            text=r"""
 Настройки:
 
 *Выдача на день\неделю:*
@@ -276,9 +278,9 @@ async def settings(message: Message, user: UserClass):
     1) *"Скрыть ссылки":* ссылки будут замаскированны под "ЦДЗ".
     2) *"Показать ссылки":* ссылки будут выведены напрямую.
             """,
-        reply_markup=murkup,
-        parse_mode='Markdown',
-        disable_notification=user.setting_notification,
+            reply_markup=murkup,
+            parse_mode='Markdown',
+            disable_notification=user.setting_notification,
     )
 
 
@@ -293,9 +295,9 @@ async def change_delivery(message: Message, user: UserClass):
     await user.save_settings(setting_dw=user.setting_dw)
     logger.info(f'Изменены настройки выдачи ({message.from_user.username} - {user.setting_dw} ({user.data}))')
     await message.answer(
-        'Настройки успешно изменены!',
-        reply_markup=murkup,
-        disable_notification=user.setting_notification,
+            'Настройки успешно изменены!',
+            reply_markup=murkup,
+            disable_notification=user.setting_notification,
     )
 
 
@@ -310,9 +312,9 @@ async def change_notification(message: Message, user: UserClass):
     await user.save_settings(setting_notification=user.setting_notification)
     logger.info(f'Изменены настройки уведомлений ({message.from_user.username} - {user.setting_notification} ({user.data}))')
     await message.answer(
-        'Настройки успешно изменены!',
-        reply_markup=murkup,
-        disable_notification=user.setting_notification,
+            'Настройки успешно изменены!',
+            reply_markup=murkup,
+            disable_notification=user.setting_notification,
     )
 
 
@@ -326,12 +328,12 @@ async def change_link(message: Message, user: UserClass):
     murkup = make_setting_button(user)
     await user.save_settings(setting_hide_link=user.setting_hide_link)
     logger.info(
-        f'Изменены настройки ссылок ({message.from_user.username} - {user.setting_hide_link} ({user.data}))'
+            f'Изменены настройки ссылок ({message.from_user.username} - {user.setting_hide_link} ({user.data}))'
     )
     await message.answer(
-        'Настройки успешно изменены!',
-        reply_markup=murkup,
-        disable_notification=user.setting_notification,
+            'Настройки успешно изменены!',
+            reply_markup=murkup,
+            disable_notification=user.setting_notification,
     )
 
 
@@ -340,16 +342,16 @@ async def change_link(message: Message, user: UserClass):
 async def exit_settings(message: Message, user: UserClass):
     logger.info(f'Вышел из настроек ({message.from_user.username})')
     await user.save_settings(
-        setting_dw=user.setting_dw,
-        setting_notification=user.setting_notification,
-        setting_hide_link=user.setting_hide_link,
-        debug=user.debug,
-        save_db=True,
+            setting_dw=user.setting_dw,
+            setting_notification=user.setting_notification,
+            setting_hide_link=user.setting_hide_link,
+            debug=user.debug,
+            save_db=True,
     )
     await message.answer(
-        'Главное меню',
-        reply_markup=main_button(user),
-        disable_notification=user.setting_notification,
+            'Главное меню',
+            reply_markup=main_button(user),
+            disable_notification=user.setting_notification,
     )
 
 

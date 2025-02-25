@@ -7,7 +7,7 @@ import requests
 from bin import ExpiredToken, ServerError, logger
 
 
-def check_response(func:callable):
+def check_response(func: callable):
     """
     Wrapper for function, which check for token and status code in response
 
@@ -33,7 +33,10 @@ def check_response(func:callable):
             raise ServerError()
         else:
             return next(gen)
+
     return wrapped
+
+
 def get_weekday(number: int = None) -> Union[str, list[str]]:
     weekdays = {
         1: 'Понедельник',
@@ -48,6 +51,7 @@ def get_weekday(number: int = None) -> Union[str, list[str]]:
         return [name_day for name_day in weekdays.values()]
     else:
         return weekdays.get(number)
+
 
 @check_response
 def get_homework_from_website(
@@ -99,10 +103,10 @@ def get_homework_from_website(
     cookie = {'aupd_token': token}
 
     response = requests.get(
-        'https://authedu.mosreg.ru/api/family/web/v1/homeworks',
-        params=params,
-        cookies=cookie,
-        headers=headers,
+            'https://authedu.mosreg.ru/api/family/web/v1/homeworks',
+            params=params,
+            cookies=cookie,
+            headers=headers,
     )
     yield response
 
@@ -111,6 +115,7 @@ def get_homework_from_website(
     output['date']['begin_date'] = datetime.isoformat(datetime.strptime(begin_date, '%Y-%m-%d'))
     output['date']['end_date'] = datetime.isoformat(datetime.strptime(end_date, '%Y-%m-%d'))
     yield output
+
 
 @check_response
 def get_student_id(token: str) -> int:
@@ -130,11 +135,12 @@ def get_student_id(token: str) -> int:
     }
 
     response = requests.get(
-        'https://myschool.mosreg.ru/acl/api/users/profile_info', headers=headers
+            'https://myschool.mosreg.ru/acl/api/users/profile_info', headers=headers
     )
     yield response
 
     yield response.json()[0]['id']
+
 
 @check_response
 def get_person_id(token: str) -> str:
@@ -160,13 +166,14 @@ def get_person_id(token: str) -> str:
     json_data = {'auth_token': token}
 
     response = requests.post(
-        'https://authedu.mosreg.ru/api/ej/acl/v1/sessions',
-        headers=headers,
-        json=json_data,
+            'https://authedu.mosreg.ru/api/ej/acl/v1/sessions',
+            headers=headers,
+            json=json_data,
     )
     yield response
 
     yield response.json()['person_id']
+
 
 @check_response
 def get_marks(
@@ -213,14 +220,15 @@ def get_marks(
     params = {'from': begin_date, 'to': end_date, 'student_id': student_id}
 
     response = requests.get(
-        'https://authedu.mosreg.ru/api/family/web/v1/marks',
-        params=params,
-        cookies=cookie,
-        headers=headers,
+            'https://authedu.mosreg.ru/api/family/web/v1/marks',
+            params=params,
+            cookies=cookie,
+            headers=headers,
     )
     yield response
 
     yield (monday, monday + timedelta(days=4)), response.json()
+
 
 @check_response
 def get_schedule(token: str) -> tuple[datetime, dict]:
@@ -264,9 +272,9 @@ def get_schedule(token: str) -> tuple[datetime, dict]:
     params = {'person_ids': person_id, 'begin_date': date_str, 'end_date': date_str}
 
     response = requests.get(
-        'https://authedu.mosreg.ru/api/eventcalendar/v1/api/events',
-        headers=headers,
-        params=params,
+            'https://authedu.mosreg.ru/api/eventcalendar/v1/api/events',
+            headers=headers,
+            params=params,
     )
     yield response
 
