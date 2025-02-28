@@ -30,6 +30,8 @@ from handlers import Handlers
 bot = Bot(API_BOT)
 dp = Dispatcher()
 
+MAX_WIDTH_MESSAGE = 33
+
 
 async def _exception_handler(user: UserClass, message: Message, function: callable, *args, **kwargs):
     """
@@ -130,7 +132,7 @@ async def schedule(message: Message, user: UserClass):
     )
     )
 
-    output += f'\n{'-' * min(58, len(output))}\nВсего уроков: {schedule["total_count"]}\n'
+    output += f'\n{'-' * min(MAX_WIDTH_MESSAGE, len(output))}\nВсего уроков: {schedule["total_count"]}\n'
     await message.answer(re.sub(r'([\[(.\])-])', r'\\\1', output), parse_mode='MarkdownV2')
 
 
@@ -185,10 +187,10 @@ async def homework(message: Message, user: UserClass):
             if not link and 'https://' in lesson['homework']:
                 link = True
             output += f'*• {lesson["name"]}:*\n\t{"├" if lesson["links"] else "└"} _{lesson["homework"].strip()}_\n{lesson["links"]}'
-        output += f'{"-" * min(58, len(max(output.split("\n"), key=len)))}\nВсего задано уроков: {len(one_day)}'
+        output += f'{"-" * min(MAX_WIDTH_MESSAGE, len(max(output.split("\n"), key=len)))}\nВсего задано уроков: {len(one_day)}'
         output = '\n'.join(
                 [
-                    re.sub(r'([\[(.\])#~-])', r'\\\1', line) if not '[ЦДЗ' in line else line
+                    re.sub(r'([+[.\]()#~-])', r'\\\1', line) if not '[ЦДЗ' in line else line
                     for line in output.split('\n')
                 ]
         )

@@ -16,7 +16,7 @@ class Handlers:
     def register_all(self):
         self.__register_handlers()
         self.__register_filters()
-        logger.info('Handlers and filters registered!')
+        # logger.debug('Handlers and filters registered!')
 
     def __register_handlers(self):
         if self.dp:
