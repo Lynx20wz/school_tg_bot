@@ -1,6 +1,6 @@
 from aiogram import Dispatcher
 
-from filters.is_admin import IsAdmin
+from bot.filters.is_admin import IsAdmin
 from .debug import debug_router
 from .registration import auth_router
 from .unknown import unknown_router

@@ -5,7 +5,7 @@ from typing import Optional, Union
 
 import aiosqlite
 
-from bin import BD_PATH, logger, BD_BACKUP_PATH
+from bot.bin import BD_PATH, logger, BD_BACKUP_PATH
 
 
 class BaseDate:
