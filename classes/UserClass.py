@@ -1,6 +1,6 @@
 import asyncio
 from functools import wraps
-from typing import Optional, Union, Tuple, Callable
+from typing import Union, Callable
 from typing import TypeVar, ParamSpec
 
 from aiogram.types import Message
@@ -13,8 +13,6 @@ P = ParamSpec('P')
 
 
 class UserClass:
-    users = []
-
     def __init__(
         self,
         username: str,
@@ -22,7 +20,7 @@ class UserClass:
         debug: bool = False,
         setting_dw: bool = False,
         setting_notification: bool = True,
-        setting_hide_link: bool = False,
+        setting_hide_link: bool = True,
         token: str = None,
         student_id: int = None,
         homework_id: int = None,
@@ -72,36 +70,6 @@ class UserClass:
                 )
         )
 
-        async def update_existing_user():
-            existing_user = await self.get_user_from_massive(username, 2)
-            if not existing_user:
-                self.users.append(self)
-
-        asyncio.create_task(update_existing_user())
-
-    @classmethod
-    async def get_user_from_massive(
-        cls, username: str, mode: int = 1
-    ) -> Optional[Union[Tuple[str, int, bool, bool, bool], 'UserClass', int]]:
-        """
-        Получает пользователя из списка пользователей.
-
-        :param username: Имя пользователя.
-        :param mode: Режим возвращаемых данных.
-        :return: Возвращает данные пользователя из массива users в зависимости от режима.
-         Если пользователь не найден в массиве, то None.
-        """
-        for i, user in enumerate(cls.users):
-            if user.username == username:
-                match mode:
-                    case 1:
-                        return await user.data
-                    case 2:
-                        return user
-                    case 3:
-                        return i
-        return None
-
     @staticmethod
     def get_user():
         """
@@ -115,37 +83,31 @@ class UserClass:
                 if isinstance(message, UserClass):
                     user = message
                 else:
-                    existing_user = await UserClass.get_user_from_massive(
-                            message.from_user.username, 2
-                    )
-                    if existing_user:
-                        user = existing_user
-                    else:
-                        user_db = await db(message.from_user.username)
-                        logger.debug(f'{user_db} - {func.__name__}')
-                        if user_db is not None:
-                            try:
-                                user = UserClass(
-                                        message.from_user.username,
-                                        message.from_user.id,
-                                        user_db.get('debug', False),
-                                        user_db.get('setting_dw', True),
-                                        user_db.get('setting_notification', True),
-                                        user_db.get('setting_hide_link', False),
-                                        user_db.get('token'),
-                                        user_db.get('student_id'),
-                                        user_db.get('homework'),
-                                )
-                            except AttributeError:
-                                await message.answer(
-                                        'У вас отсутствует имя пользователя! Пожалуйста добавьте его в настройках аккаунта.',
-                                        reply_markup=username_button(),
-                                )
-                                return
-                        else:
+                    user_db = await db(message.from_user.username)
+                    logger.debug(f'{user_db} - {func.__name__}')
+                    if user_db is not None:
+                        try:
                             user = UserClass(
-                                    message.from_user.username, message.from_user.id
+                                    message.from_user.username,
+                                    message.from_user.id,
+                                    user_db.get('debug', False),
+                                    user_db.get('setting_dw', False),
+                                    user_db.get('setting_notification', True),
+                                    user_db.get('setting_hide_link', True),
+                                    user_db.get('token'),
+                                    user_db.get('student_id'),
+                                    user_db.get('homework'),
                             )
+                        except AttributeError:
+                            await message.answer(
+                                    'У вас отсутствует имя пользователя! Пожалуйста добавьте его в настройках аккаунта.',
+                                    reply_markup=username_button(),
+                            )
+                            return
+                    else:
+                        user = UserClass(
+                                message.from_user.username, message.from_user.id
+                        )
 
                 return await func(message=message, user=user, *args, **kwargs)
 
@@ -185,13 +147,6 @@ class UserClass:
         self.setting_notification = setting_notification
         self.setting_hide_link = setting_hide_link
         self.debug = debug
-
-        user = await self.get_user_from_massive(self.username, 2)
-        if user is not None:
-            user.setting_dw = setting_dw
-            user.setting_notification = setting_notification
-            user.setting_hide_link = setting_hide_link
-            user.debug = debug
 
         if save_db:
             asyncio.create_task(db.update_user(self))

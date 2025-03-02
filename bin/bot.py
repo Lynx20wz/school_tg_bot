@@ -56,23 +56,6 @@ async def _exception_handler(user: UserClass, message: Message, function: callab
     return result
 
 
-async def restart():
-    users = await db.restart_bot(False if '-back' in sys.argv else True)
-    for user in users:
-        UserClass(
-                user.get('username'),
-                user.get('userid'),
-                bool(user.get('debug', False)),
-                bool(user.get('setting_dw', False)),
-                bool(user.get('setting_notification', True)),
-                bool(user.get('setting_hide_link', False)),
-                user.get('token'),
-                user.get('student_id'),
-                user.get('homework_id'),
-        )
-    logger.debug('Бот рестарт!')
-
-
 # СТАРТ!
 @dp.message(F.text, Command('start'))
 @UserClass.get_user()
@@ -362,7 +345,8 @@ async def delete_user(message: Message, user: UserClass):
 async def main():
     Handlers(dp).register_all()
     await bot.delete_webhook(drop_pending_updates=True)
-    await restart()
+    await db.restart_bot(False if '-back' in sys.argv else True)
+    logger.debug('Бот рестарт!')
     try:
         await dp.start_polling(bot)
     finally:

@@ -55,9 +55,7 @@ class BaseDate:
                     users = await cursor.fetchall()
                     return [dict(user) for user in users]
 
-    async def restart_bot(
-        self, load_backup: bool = True
-    ) -> list[dict[str, Union[str, bool, int]]]:
+    async def restart_bot(self, load_backup: bool = True):
         exists = os.path.exists(self.path)
         async with aiosqlite.connect(self.path) as db:
             db.row_factory = aiosqlite.Row
@@ -84,9 +82,6 @@ class BaseDate:
 
             if load_backup and not exists and os.path.exists(self.backup_path):
                 await self.backup_load()
-
-            async with db.execute('SELECT DISTINCT * FROM users') as cursor:
-                return [dict(user) for user in await cursor.fetchall()]
 
     async def get_homework(self, username: str) -> Optional[tuple[datetime, dict]]:
         async with aiosqlite.connect(self.path) as db:
