@@ -12,7 +12,7 @@ from aiogram.types import (
     BufferedInputFile,
 )
 
-from bin import (
+from bot.bin import (
     UserClass,
     API_BOT,
     logger,
@@ -25,7 +25,7 @@ from bin import (
     NoToken,
     ServerError
 )
-from handlers import Handlers
+from bot.handlers import Handlers
 
 bot = Bot(API_BOT)
 dp = Dispatcher()
@@ -61,7 +61,7 @@ async def _exception_handler(user: UserClass, message: Message, function: callab
 @UserClass.get_user()
 async def start(message: Message, user: UserClass):
     logger.info(f'Бота запустили ({message.from_user.username})')
-    with open('Логирование.png', 'rb') as file:
+    with open('../loging.png', 'rb') as file:
         await message.answer_photo(
                 photo=BufferedInputFile(file.read(), filename='Логирование'),
                 caption="""Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д. Найдёте ошибки сообщите: @Lynx20wz)

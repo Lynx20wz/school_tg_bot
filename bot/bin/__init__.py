@@ -57,4 +57,4 @@ logger.add(
 logger.add(format=log_format, sink='temp/log.log', level='INFO', mode='w')
 
 # To avoid cyclical imports
-from classes import *
+from bot.classes import *

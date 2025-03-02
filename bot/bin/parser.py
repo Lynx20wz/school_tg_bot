@@ -4,7 +4,7 @@ from typing import Union
 
 import requests
 
-from bin import ExpiredToken, ServerError, logger
+from bot.bin import ExpiredToken, ServerError, logger
 
 
 def check_response(func: callable):

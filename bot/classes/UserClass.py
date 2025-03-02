@@ -5,8 +5,8 @@ from typing import TypeVar, ParamSpec
 
 from aiogram.types import Message
 
-from bin import username_button, logger
-from classes.BaseDate import db
+from bot.bin import username_button, logger
+from bot.classes.BaseDate import db
 
 T = TypeVar('T')
 P = ParamSpec('P')
