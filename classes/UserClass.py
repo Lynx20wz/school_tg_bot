@@ -1,42 +1,38 @@
 import asyncio
 from functools import wraps
-from typing import Union, Callable
-from typing import TypeVar, ParamSpec
+from typing import Union, Callable, Optional
 
 from aiogram.types import Message
 
 from bin import username_button, logger
 from classes.BaseDate import db
 
-T = TypeVar('T')
-P = ParamSpec('P')
-
-
 class UserClass:
     def __init__(
         self,
         username: str,
         userid: int,
-        debug: bool = False,
-        setting_dw: bool = False,
-        setting_notification: bool = True,
-        setting_hide_link: bool = True,
-        token: str = None,
-        student_id: int = None,
-        homework_id: int = None,
+        debug: Optional[bool] = False,
+        setting_dw: Optional[bool] = False,
+        setting_notification: Optional[bool] = True,
+        setting_hide_link: Optional[bool] = True,
+        token: Optional[str] = None,
+        student_id: Optional[int] = None,
+        homework_id: Optional[int] = None,
     ):
         """
-        Инициализирует объект user_class.
+        Initializes the user_class object.
 
-        :param username: Имя пользователя.
-        :param userid: ID пользователя.
-        :param debug: Флаг отладки.
-        :param setting_dw: Флаг настройки уведомлений.
-        :param setting_notification: Флаг уведомлений.
-        :param setting_hide_link: Флаг скрытия ссылок.
-        :param token: Токен авторизации пользователя.
-        :param student_id: ID студента.
-        :param homework_id: ID домашнего задания.
+        Args:
+            username (str): The username of the user.
+            userid (int): The ID of the user.
+            debug (bool, optional): A flag indicating whether to enable debug mode. Defaults to False.
+            setting_dw (bool, optional): A flag indicating whether to enable delivery notifications. Defaults to False.
+            setting_notification (bool, optional): A flag indicating whether to enable notifications. Defaults to True.
+            setting_hide_link (bool, optional): A flag indicating whether to hide links. Defaults to True.
+            token (str, optional): The authentication token for the user. Defaults to None.
+            student_id (int, optional): The ID of the student. Defaults to None.
+            homework_id (int, optional): The ID of the homework. Defaults to None.
         """
 
         self.username = username
@@ -73,11 +69,13 @@ class UserClass:
     @staticmethod
     def get_user():
         """
-        Возвращает пользователя из кэша.
-        :return: Возвращает функцию-обёртку для получения пользователя.
+        The function returns the user from the database
+
+        Returns
+            Function-wrapper for getting user
         """
 
-        def wrapper(func: Callable[P, T]):
+        def wrapper(func: Callable):
             @wraps(func)
             async def wrapped(message: Union[Message, UserClass], *args, **kwargs):
                 if isinstance(message, UserClass):
@@ -125,28 +123,21 @@ class UserClass:
         save_db: bool = False,
     ):
         """
-        Сохраняет настройки пользователя.
+        The function saves user settings
 
-        :param setting_dw: Флаг настройки уведомлений.
-        :param setting_notification: Флаг уведомлений.
-        :param setting_hide_link: Флаг скрытия ссылок.
-        :param debug: Флаг отладки.
-        :param save_db: Если True, то настройки будут обновленный не только в массиве пользователей,
-        а также и в БД.
+        Args:
+            setting_dw (bool): The flag for the delivery notification
+            setting_notification (bool): The flag for notifications
+            setting_hide_link (bool): The flag for hiding links
+            debug (bool): The flag for debugging
+            save_db (bool): If True, the settings will be updated not only in the array of users,
+            but also in the database
         """
-        if setting_dw is None:
-            setting_dw = self.setting_dw
-        if setting_notification is None:
-            setting_notification = self.setting_notification
-        if setting_hide_link is None:
-            setting_hide_link = self.setting_hide_link
-        if debug is None:
-            debug = self.debug
 
-        self.setting_dw = setting_dw
-        self.setting_notification = setting_notification
-        self.setting_hide_link = setting_hide_link
-        self.debug = debug
+        self.setting_dw = setting_dw or self.setting_dw
+        self.setting_notification = setting_notification or self.setting_notification
+        self.setting_hide_link = setting_hide_link or self.setting_hide_link
+        self.debug = debug or self.debug
 
         if save_db:
             asyncio.create_task(db.update_user(self))

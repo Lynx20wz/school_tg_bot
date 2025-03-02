@@ -125,8 +125,9 @@ async def homework(message: Message, user: UserClass):
     """
     Sends the text of homework in accordance with the user settings.
 
-    : Param Message: received message.
-    : Param User: User Object.
+    Args:
+        message (Message): Received message.
+        user (UserClass): User object.
     """
 
     logger.info(f'Вызвана домашка ({message.from_user.username})')
@@ -134,7 +135,7 @@ async def homework(message: Message, user: UserClass):
 
     msg = await message.answer('Ожидайте... ⌛')
 
-    # Получаем домашку
+    # Getting homework
     pre_hk = await db.get_homework(user.username)
     if all(pre_hk) and (datetime.now() - pre_hk[0]) < timedelta(hours=1):
         hk = pre_hk[1]
@@ -174,15 +175,14 @@ async def homework(message: Message, user: UserClass):
         return output
 
     await bot.delete_message(message.chat.id, msg.message_id)
-    # Анализируем домашку
-    if user.setting_dw:  # Если setting_dw равен True, выводим на всю неделю
+    if user.setting_dw:  # if setting_dw is True, print for 5 days
         output = ''
         for i in range(1, 6):
             output += await get_output_for_day(link, parser.get_weekday(i)) + '\n'
-    else:  # Если False то на один день
+    else:  # if False, for one day.
         today_index = datetime.now().isoweekday()
 
-        # Если сегодня суббота или воскресенье, то выводим на следующий понедельник
+        # if today is Saturday or Sunday, print for next Monday
         if today_index in [5, 6, 7]:
             next_day_index = 1
         else:
@@ -222,15 +222,15 @@ async def homework(message: Message, user: UserClass):
 async def social_networks(message):
     await message.answer(
             text=r"""
-Конечно! Держи:
+Конечно\! Держи:
 
-[Официальная группа в WhatsApp](https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg) (создатель @Lynx20wz)
-[Подпольная группа в WhatsApp](https://chat.whatsapp.com/GvkRfG5W5JoApXrnu4T9Yo) (создатель @Juggernaut\_45)
+[Официальная группа в WhatsApp](https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg) \(создатель @Lynx20wz\)
+[Подпольная группа в WhatsApp](https://chat.whatsapp.com/GvkRfG5W5JoApXrnu4T9Yo) \(создатель @Juggernaut\_45\)
 
-Если ссылки не работают обратиться к @Lynx20wz)
+Если ссылки не работают обратиться к @Lynx20wz\} 
 """,
             reply_markup=social_networks_button(),
-            parse_mode='Markdown',
+            parse_mode='MarkdownV2',
     )
 
 
@@ -334,10 +334,16 @@ async def exit_settings(message: Message, user: UserClass):
     )
 
 
-# полное удаления пользователя
 @dp.message(F.text == 'Удалить аккаунт')
 @UserClass.get_user()
 async def delete_user(message: Message, user: UserClass):
+    """
+    Complete deletion of a user
+
+    Args:
+        message (Message): Received message
+        user (UserClass): User object
+    """
     await db.delete_user(user.username)
     await message.answer('Аккаунт успешно удален!')
 

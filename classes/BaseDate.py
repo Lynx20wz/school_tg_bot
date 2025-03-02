@@ -23,7 +23,7 @@ class BaseDate:
                     res = await cursor.fetchone()
                     if res:
                         return dict(res)
-                logger.info(f'{user[0]} был добавлен в базу данных')
+                logger.info(f'{user[0]} was added in the database')
                 await db.execute(
                         """
                             INSERT INTO users (username, userid, debug, setting_dw, setting_notification, setting_hide_link) 
@@ -133,10 +133,11 @@ class BaseDate:
                     (username,),
             ) as cursor:
                 result = await cursor.fetchone()
-                # logger.debug(result)
-                # Если result == None то привязываем пользователя к новой ячейке таблицы в которую заносим токен.
-                # Если result != None, то проверяем что такого кэша нет в таблице.
-                # Если есть удаляем запись с токеном и привязывая пользователя туда
+                """
+                If result == None, we bind the user to a new cell in the table where we put the token.
+                If result != None, we check that there is no such cache in the table.
+                If there is, delete the record with the token and bind the user there
+                """
                 if result is None:
                     await self.set_homework_id(username, homework)
                 else:
@@ -166,7 +167,6 @@ class BaseDate:
                     'SELECT id FROM homework_cache WHERE cache = ?', (homework_str,)
             ) as cursor:
                 result = await cursor.fetchone()
-                # logger.debug(f'{result=}, {homework_str=}')
                 if result:
                     await db.execute(
                             'UPDATE users SET homework_id = ? WHERE username = ?',
@@ -197,7 +197,6 @@ class BaseDate:
     async def custom_command(
         self, command: str, args=None
     ) -> list | dict[str, Union[str, int, bool]]:
-        # logger.debug(f"{command=}\n{args=}")
         async with aiosqlite.connect(self.path) as db:
             if args is not None:
                 res = await db.execute(command, tuple(args))
@@ -206,7 +205,6 @@ class BaseDate:
             await db.commit()
             return await res.fetchall()
 
-    # Работа с бэкапом
     async def backup_create(self):
         if os.path.exists(self.path):
             logger.debug('Создание бэкапа')

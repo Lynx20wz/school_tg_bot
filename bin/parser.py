@@ -58,11 +58,14 @@ def get_homework_from_website(
     token: str, student_id: int, date: datetime = datetime.now()
 ) -> dict:
     """
-    Парсит данные со школьного портала и заносит их в файл в формате json.
-    :param token: токен авторизации для парсинга с госулслуг
-    :param student_id: id ученика
-    :param date: текущая дата
-    :return: Json-файл с домашним заданием.
+    The function is parsing homework from "Моя школа"
+
+    Args:
+        token (str): Authorization token for parsing from "Моя школа"
+        student_id (int): Student id
+        date (datetime): Date for which you need to analyze. By default - today's date
+    Returns:
+        A response from "Моя школа" with homework as dictionary
     """
     date_in_str = datetime(datetime.now().year, date.month, date.day)
 
@@ -120,8 +123,12 @@ def get_homework_from_website(
 @check_response
 def get_student_id(token: str) -> int:
     """
-    :param token: токен авторизации для "Моя школа"
-    :return: student_id с "Моя школа"
+    The function for getting student id
+
+    Args:
+        token (str): Authorization token for parsing from "Моя школа"
+    Returns:
+        student_id for "Моя школа"
     """
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
@@ -180,10 +187,14 @@ def get_marks(
     student_id: int, token: str, date: datetime = datetime.now()
 ) -> tuple[tuple[datetime], dict]:
     """
-    :param student_id: id ученика
-    :param date: текущая дата
-    :param token: токен авторизации для "Моя школа"
-    :return: оценки ученика
+    The function for getting marks
+
+    Args:
+        student_id (int): Student id
+        date (datetime): Date for which you need to analyze. By default - today's date
+        token (str): Authorization token for parsing from "Моя школа"
+    Returns:
+        Tuple of date and marks
     """
 
     date_in_str = datetime(datetime.now().year, date.month, date.day)
@@ -193,8 +204,6 @@ def get_marks(
 
     begin_date = monday.strftime('%Y-%m-%d')
     end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
-
-    # logger.debug(f'{begin_date} - {end_date}')
 
     cookie = {'aupd_token': token}
 
@@ -233,8 +242,12 @@ def get_marks(
 @check_response
 def get_schedule(token: str) -> tuple[datetime, dict]:
     """
-    :param token: токен авторизации для "Моя школа"
-    :return: расписание для ученика
+    The function for getting the schedule
+
+    Args:
+        token (str): Authorization token for parsing from "Моя школа"
+    Returns:
+        Tuple of date and schedule
     """
 
     person_id = get_person_id(token)
@@ -280,15 +293,15 @@ def get_schedule(token: str) -> tuple[datetime, dict]:
 
     yield date, response.json()
 
-
 def get_links_in_lesson(response: dict[str, dict]) -> dict:
     """
-    :param response: словарь который содержит в себе домашнее задание
-    :type response: dict
-    :return: изначальный словарь, но ключом links в каждом уроке будет подробная информация об уроке
-    :rtype: dict
-    """
+    Gets the links in each lesson for themselves
 
+    Args:
+        response (dict[str, dict]): dictionary which contains homework
+    Returns:
+        Initial dictionary, but the key links in each lesson will be all links for the lesson
+    """
     links = {day: {} for day in get_weekday()[:5]}
     for day_name, day in response.get('дни').items():
         for lesson in day:
@@ -318,9 +331,10 @@ def get_links_in_lesson(response: dict[str, dict]) -> dict:
 
 def split_day(response: dict[str, dict]) -> dict:
     """
-    Делит уроки из response по дням.
+    Split the lessons from response by days.
 
-    :param response: Принимает в себя dict с домашним заданием.
+    Args:
+        response (dict[str, dict]): Принимает в себя dict с домашним заданием.
     """
     lessons_dict = {
         'дни': {day: [] for day in get_weekday()[:5]},
@@ -337,11 +351,13 @@ def homework_output(
     dict_hk: dict = None, need_output: bool = False
 ) -> Union[dict, str]:
     """
-    Функция для вывода домашнего задания.
+    The function for outputs homework
 
-    :param dict_hk: Словарь с информацией о домашних заданиях.
-    :param need_output: Нужен ли вывод строки или вернуть словарь.
-    :return: Возвращает строку с информацией о домашнем задании.
+    Args:
+        dict_hk (dict): Dictionary with information about homework
+        need_output (bool): Need output text or return dictionary
+    Returns:
+        Return string with information about homework
     """
     output = {}
     for day_name, day in dict_hk['дни'].items():  # прохожу по всем дням
@@ -380,18 +396,19 @@ def homework_output(
 
 def full_parse(
     *,
-    token=None,
+    token:str=None,
     student_id: int = None,
     date: datetime = datetime.now(),
     output: bool = False,
 ) -> dict:
     """
-    Функция для полного анализа расписания.
+    The function for full analysis of the schedule
 
-    :param token: токен авторизации для парсинга с госулслуг
-    :param student_id: id ученика
-    :param date: Дата, для которой нужно произвести анализ. По умолчанию - сегодняшняя дата.
-    :param output: Нужен ли вывод строки или вернуть словарь.
+    Args
+        token (str): Authorization token for parsing from the gosuslug
+        student_id (int): Student id
+        date (datetime): Date for which you need to analyze. Defaults to today's date.
+        output (bool): Need output text or return dictionary
     """
 
     response = get_homework_from_website(token, student_id, date)

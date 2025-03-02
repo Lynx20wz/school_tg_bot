@@ -4,7 +4,6 @@ from filters.is_admin import IsAdmin
 from .debug import debug_router
 from .registration import auth_router
 from .unknown import unknown_router
-from bin import logger
 
 
 class Handlers:
@@ -16,7 +15,6 @@ class Handlers:
     def register_all(self):
         self.__register_handlers()
         self.__register_filters()
-        # logger.debug('Handlers and filters registered!')
 
     def __register_handlers(self):
         if self.dp:

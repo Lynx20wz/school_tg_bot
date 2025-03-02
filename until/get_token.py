@@ -22,10 +22,10 @@ def get_token(login, password):
     firefox_options = Options()
     firefox_options.add_argument(
             '--headless'
-    )  # Запуск в тихом режиме (без окна браузера)
+    )  # Running in silent mode (without browser window)
     firefox_options.add_argument(
             '--disable-dev-shm-usage'
-    )  # (Опционально) для ресурсов
+    )
     driver = webdriver.Firefox(service=service, options=firefox_options)
     logger.info('Ищу куки!')
     try:

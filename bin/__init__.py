@@ -40,7 +40,7 @@ try:
     API_BOT = env.str('API_BOT')
     ADMIN_IDS = env.list('ADMIN_IDS', subcast=int)
 except EnvError as e:
-    logger.exception(f'Переменные окружения не заданы: {e}')
+    logger.exception(f"Environment variables aren't set: {e}")
     exit()
 
 log_format = '{time:H:mm:ss} | "{function}" | {line} ({module}) | <level>{level}</level> | {message}'
