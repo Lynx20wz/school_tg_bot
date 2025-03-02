@@ -297,8 +297,19 @@ def get_links_in_lesson(response: dict[str, dict]) -> dict:
                 for mat in add_mat:
                     if re.match('test_.*', mat.get('type')):
                         links[day_name][lesson.get('subject_name')] = [
-                            item.get('urls')[2].get('url')
-                            for i, item in enumerate(mat.get('items'), start=1)
+                            {
+                                'link': item.get('urls')[2].get('url'),
+                                'title': item.get('title')
+                            }
+                            for item in mat.get('items')
+                        ]
+                    elif re.search(r'\.(?:png|jpg)$', mat.get('items')[0].get('title') , re.MULTILINE):
+                        links[day_name][lesson.get('subject_name')] = [
+                            {
+                                'link': item.get('link'),
+                                'title': item.get('title')
+                            }
+                            for item in mat.get('items')
                         ]
 
     response['links'] = links

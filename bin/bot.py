@@ -170,30 +170,24 @@ async def homework(message: Message, user: UserClass):
                 lambda x: datetime.fromisoformat(x).strftime('%d.%m'),
                 hk.get('date', {}).values(),
         )
-        output = f'\n*Домашка на {day_name} ({begin_date + "-" + end_date if user.setting_dw else begin_date})*:\n'
+        output = re.escape(f'*Домашка на {day_name} ({begin_date + "-" + end_date if user.setting_dw else begin_date})*:\n')
         for lesson in one_day:
             if lesson['links']:
                 logger.debug(f'{user.setting_hide_link=}')
                 if user.setting_hide_link:
                     lesson['links'] = (
-                        f'\t└ {"\n\t\t\t".join(f"[ЦДЗ {i}]({exam})" for i, exam in enumerate(lesson["links"], start=1))}\n'
+                        f'\t└ {"\n\t\t\t".join(f"[{re.escape(exam['title'])}]({exam['link']})" for i, exam in enumerate(lesson["links"], start=1))}\n'
                     )
                 else:
                     lesson['links'] = (
-                        f'\t└ {"\n\t\t\t".join(f"{re.sub(r'([=_])', r'\\\1', exam)}" for i, exam in enumerate(lesson["links"], start=1))}\n'
+                        f'\t└ {"\n\t\t\t".join(f"{re.escape(exam['link'])}" for i, exam in enumerate(lesson["links"], start=1))}\n'
                     )
             else:
                 lesson['links'] = ''
             if not link and 'https://' in lesson['homework']:
                 link = True
-            output += f'*• {lesson["name"]}:*\n\t{"├" if lesson["links"] else "└"} _{lesson["homework"].strip()}_\n{lesson["links"]}'
-        output += f'{"-" * min(MAX_WIDTH_MESSAGE, len(max(output.split("\n"), key=len)))}\nВсего задано уроков: {len(one_day)}'
-        output = '\n'.join(
-                [
-                    re.sub(r'([+[.\]()#~-])', r'\\\1', line) if not '[ЦДЗ' in line else line
-                    for line in output.split('\n')
-                ]
-        )
+            output += f'*• {re.escape(lesson["name"])}:*\n\t{"├" if lesson["links"] else "└"} _{re.escape(lesson["homework"].strip())}_\n{lesson["links"]}'
+        output += f'{r"\-" * min(MAX_WIDTH_MESSAGE, len(max(output.split("\n"), key=len)))}\nВсего задано уроков: {len(one_day)}'
         return output
 
     await bot.delete_message(message.chat.id, msg.message_id)

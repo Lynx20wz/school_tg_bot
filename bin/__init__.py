@@ -1,5 +1,5 @@
 __all__ = (
-    # Self
+    # Const
     'BD_PATH',
     'BD_BACKUP_PATH',
     'API_BOT',
@@ -29,13 +29,14 @@ from environs import Env, EnvError
 from loguru import logger
 from until import *
 
-env = Env()
+# CONST
+BD_PATH = 'temp/DataBase.db'
+BD_BACKUP_PATH = 'temp/BackupDataBase.db'
 
+env = Env()
 env.read_env()
 
 try:
-    BD_PATH = env.str('BD_PATH')
-    BD_BACKUP_PATH = env.str('BD_BACKUP_PATH')
     API_BOT = env.str('API_BOT')
     ADMIN_IDS = env.list('ADMIN_IDS', subcast=int)
 except EnvError as e:
@@ -53,7 +54,7 @@ logger.add(
         level='DEBUG',
         colorize=True,
 )
-logger.add(format=log_format, sink='temp//log.log', level='INFO', mode='w')
+logger.add(format=log_format, sink='temp/log.log', level='INFO', mode='w')
 
 # To avoid cyclical imports
 from classes import *

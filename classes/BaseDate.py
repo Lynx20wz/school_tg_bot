@@ -101,7 +101,7 @@ class BaseDate:
             ) as cursor:
                 data = await cursor.fetchone()
 
-                if all(data):
+                if data and all(data):
                     timestamp, hk = data
                     hk = json.loads(hk)
                     return datetime.fromisoformat(timestamp), hk
@@ -165,7 +165,6 @@ class BaseDate:
 
     async def set_homework_id(self, username: str, homework: dict):
         async with aiosqlite.connect(self.path) as db:
-            homework['date'] = {k: v.isoformat() for k, v in homework['date'].items()}
             logger.debug(homework['date'])
             homework_str = json.dumps(homework, ensure_ascii=False)
             async with db.execute(
