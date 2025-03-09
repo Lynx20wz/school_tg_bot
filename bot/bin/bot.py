@@ -1,5 +1,4 @@
 import asyncio
-import re
 import sys
 from datetime import datetime, timedelta
 
@@ -7,8 +6,6 @@ from aiogram import Bot, F, Dispatcher
 from aiogram.filters.command import Command
 from aiogram.types import (
     Message,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     BufferedInputFile,
 )
 
@@ -25,13 +22,13 @@ from bot.bin import (
     NoToken,
     ServerError
 )
+from bot.bin.parser import get_weekday
 from bot.handlers import Handlers
 
 bot = Bot(API_BOT)
 dp = Dispatcher()
 
 MAX_WIDTH_MESSAGE = 33
-
 
 async def _exception_handler(user: UserClass, message: Message, function: callable, *args, **kwargs):
     """
@@ -56,12 +53,12 @@ async def _exception_handler(user: UserClass, message: Message, function: callab
     return result
 
 
-# СТАРТ!
+# START!
 @dp.message(F.text, Command('start'))
 @UserClass.get_user()
 async def start(message: Message, user: UserClass):
     logger.info(f'Бота запустили ({message.from_user.username})')
-    with open('../loging.png', 'rb') as file:
+    with open('bot/loging.png', 'rb') as file:
         await message.answer_photo(
                 photo=BufferedInputFile(file.read(), filename='Логирование'),
                 caption="""Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д. Найдёте ошибки сообщите: @Lynx20wz)
@@ -77,24 +74,32 @@ async def marks(message: Message, user: UserClass):
     response = await _exception_handler(user, message, parser.get_marks, user.student_id)
     if not response:
         return
-    date, response = response
-    output = f'Оценки за неделю {date[0].strftime("%d.%m")} - {date[1].strftime("%d.%m")}:\n'
 
-    if response['payload']:
-        for lesson in response['payload']:
-            day_of_week = parser.get_weekday(datetime.strptime(lesson['date'], '%Y-%m-%d').isoweekday())
-            if day_of_week not in output:
-                output += f'\t*{day_of_week}:*\n'
-            output += f'\t\t- _{lesson["subject_name"]}: *{lesson["value"]}*_\n'
+    if user.setting_dw:
+        output = f'*Оценки за неделю ({response['date']['begin_date'].strftime("%d.%m")} - {response['date']['end_date'].strftime("%d.%m")}):*\n'
+
+        if response['days']:
+            for name_of_day, marks in response['days'].items():
+                output += f'*{name_of_day}:*\n\t└ '.join(f'*{mark[0]}*: {mark[1]}' for mark in marks)
+        else:
+            output += '\t└ Оценки за этот период отсутствуют'
     else:
-        output += '\t└ Оценки за этот период отсутствуют'
+        output = f'*Оценки за сегодняшний день ({response["date"]["begin_date"].strftime("%d.%m")}):*\n'
 
-    output = re.sub(r'([\[(.\])-])', r'\\\1', output)
+        today = get_weekday(datetime.now().isoweekday())
+
+        if response['days']:
+            output += f'*{today}:*\n\t└ '.join(f'*{mark[0]}*: {mark[1]}' for mark in response['days'][today])
+        else:
+            output += '\t└ Оценки за сегодняшний день отсутствуют'
+
+
+
     await message.answer(
             output,
             reply_markup=main_button(user),
             disable_notification=user.setting_notification,
-            parse_mode='MarkdownV2',
+            parse_mode='Markdown',
     )
 
 
@@ -105,18 +110,37 @@ async def schedule(message: Message, user: UserClass):
     response = await _exception_handler(user, message, parser.get_schedule)
     if not response:
         return
-    date, schedule = response
+    schedule = response.get('days')
 
-    output = (
-            f'*Расписание на {parser.get_weekday(date.isoweekday())} ({date.strftime("%d.%m")}):*\n'
+    if user.setting_dw:
+        output = f'*Расписание на неделю ({response['date']['begin_date'].strftime("%d.%m")} - {response['date']['end_date'].strftime("%d.%m")}):*'
+        for name_of_day, day in schedule.items():
+            output += (
+            f'\n\n*{name_of_day}:*\n'
             + '\n'.join(
-            f'\t{"├└"[i == len(schedule["response"]) - 1]} {lesson["subject_name"]} ({lesson["room_number"]})'
-            for i, lesson in enumerate(schedule['response'])
-    )
-    )
+                f'\t{"├└"[i == len(day)]} {lesson["subject_name"]} ({lesson["room_number"]})'
+                for i, lesson in enumerate(day, start=1)
+            ))
+        output += f'\n{'-' * min(MAX_WIDTH_MESSAGE, len(output))}\nВсего уроков: {response["total_count"]}\n'
+    else:
+        today = datetime.now().isoweekday()
+        if today in [5, 6, 7]:
+            name_of_day = get_weekday(1)
+        else:
+            name_of_day = get_weekday(today + 1)
 
-    output += f'\n{'-' * min(MAX_WIDTH_MESSAGE, len(output))}\nВсего уроков: {schedule["total_count"]}\n'
-    await message.answer(re.sub(r'([\[(.\])-])', r'\\\1', output), parse_mode='MarkdownV2')
+        day = schedule[name_of_day]
+
+        output = (
+                f'*Расписание на {name_of_day} ({datetime.fromisoformat(day[0]["start_at"]).strftime("%d.%m")}):*\n'
+                + '\n'.join(
+                f'\t{"├└"[i == len(day)]} {lesson["subject_name"]} ({lesson["room_number"]})'
+                for i, lesson in enumerate(day, start=1)
+            )
+        )
+
+        output += f'\n{'-' * min(MAX_WIDTH_MESSAGE, len(output))}\nВсего уроков: {len(day)}\n'
+    await message.answer(output, parse_mode='Markdown')
 
 
 @dp.message(F.text == 'Домашнее задание 📓')
@@ -131,14 +155,13 @@ async def homework(message: Message, user: UserClass):
     """
 
     logger.info(f'Вызвана домашка ({message.from_user.username})')
-    link: bool = False
 
     msg = await message.answer('Ожидайте... ⌛')
 
     # Getting homework
     pre_hk = await db.get_homework(user.username)
-    if all(pre_hk) and (datetime.now() - pre_hk[0]) < timedelta(hours=1):
-        hk = pre_hk[1]
+    if pre_hk and (datetime.now() - datetime.fromisoformat(pre_hk['date']['timestamp'])) < timedelta(hours=1):
+        hk = pre_hk
     else:
         hk = await _exception_handler(user, message, parser.full_parse)
         if not hk:
@@ -146,39 +169,37 @@ async def homework(message: Message, user: UserClass):
             return
 
         await db.save_homework(user.username, hk)
-        await message.answer('Домашка успешно обновлена!')
 
-    async def get_output_for_day(link: bool, day_name: str) -> str:
-        one_day = hk.get(day_name)
-        begin_date, end_date = map(
+    async def get_output_for_day(day_name: str) -> str:
+        one_day = hk['days'].get(day_name)
+        begin_date, end_date, _ = map(
                 lambda x: datetime.fromisoformat(x).strftime('%d.%m'),
                 hk.get('date', {}).values(),
         )
-        output = re.escape(f'*Домашка на {day_name} ({begin_date + "-" + end_date if user.setting_dw else begin_date})*:\n')
+
+        output = f'*Домашка на {day_name} ({begin_date + r"-" + end_date if user.setting_dw else begin_date})*:\n'
         for lesson in one_day:
             if lesson['links']:
                 logger.debug(f'{user.setting_hide_link=}')
                 if user.setting_hide_link:
                     lesson['links'] = (
-                        f'\t└ {"\n\t\t\t".join(f"[{re.escape(exam['title'])}]({exam['link']})" for i, exam in enumerate(lesson["links"], start=1))}\n'
+                        f'\t└ {"\n\t\t\t".join(f"[{(exam['title'])}]({exam['link']})" for  exam in lesson["links"])}\n'
                     )
                 else:
                     lesson['links'] = (
-                        f'\t└ {"\n\t\t\t".join(f"{re.escape(exam['link'])}" for i, exam in enumerate(lesson["links"], start=1))}\n'
+                        f'\t└ {"\n\t\t\t".join(f"{exam['link'].replace('_', r'\_')}" for exam in lesson["links"])}\n'
                     )
             else:
                 lesson['links'] = ''
-            if not link and 'https://' in lesson['homework']:
-                link = True
-            output += f'*• {re.escape(lesson["name"])}:*\n\t{"├" if lesson["links"] else "└"} _{re.escape(lesson["homework"].strip())}_\n{lesson["links"]}'
-        output += f'{r"\-" * min(MAX_WIDTH_MESSAGE, len(max(output.split("\n"), key=len)))}\nВсего задано уроков: {len(one_day)}'
+            output += f'*• {lesson["name"]}:*\n\t{"├" if lesson["links"] else "└"} _{lesson["homework"].strip()}_\n{lesson["links"]}'
+        output += f'{r"-" * min(MAX_WIDTH_MESSAGE, len(max(output.split("\n"), key=len)))}\nВсего задано уроков: {len(one_day)}'
         return output
 
     await bot.delete_message(message.chat.id, msg.message_id)
     if user.setting_dw:  # if setting_dw is True, print for 5 days
         output = ''
         for i in range(1, 6):
-            output += await get_output_for_day(link, parser.get_weekday(i)) + '\n'
+            output += await get_output_for_day(parser.get_weekday(i)) + '\n'
     else:  # if False, for one day.
         today_index = datetime.now().isoweekday()
 
@@ -189,33 +210,13 @@ async def homework(message: Message, user: UserClass):
             next_day_index = today_index + 1
 
         day_name = parser.get_weekday(next_day_index)
-        output = await get_output_for_day(link, day_name)
+        output = await get_output_for_day(day_name)
 
-    logger.debug(output)
-
-    if link:
-        murkup = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                                text='Бот для решения ЦДЗ',
-                                url='https://t.me/solving_CDZ_tests_bot',
-                        )
-                    ]
-                ]
-        )
-        await message.answer(
-                output,
-                parse_mode='MarkdownV2',
-                reply_markup=murkup,
-                disable_notification=user.setting_notification,
-        )
-    else:
-        await message.answer(
-                output,
-                parse_mode='MarkdownV2',
-                disable_notification=user.setting_notification,
-        )
+    await message.answer(
+            output,
+            parse_mode='Markdown',
+            disable_notification=user.setting_notification,
+    )
 
 
 @dp.message(F.text == 'Соц. сети класса 💬')
@@ -325,7 +326,6 @@ async def exit_settings(message: Message, user: UserClass):
             setting_notification=user.setting_notification,
             setting_hide_link=user.setting_hide_link,
             debug=user.debug,
-            save_db=True,
     )
     await message.answer(
             'Главное меню',
@@ -360,6 +360,6 @@ async def main():
         await bot.close()
 
 
-# Запуск бота
+# Starting the bot
 if __name__ == '__main__':
     asyncio.run(main())

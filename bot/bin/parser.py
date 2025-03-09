@@ -36,6 +36,14 @@ def check_response(func: callable):
 
     return wrapped
 
+def get_monday_date(date: datetime) -> datetime:
+    name_of_day = date.isoweekday()
+    return (
+        date - timedelta(days=(name_of_day - 1))
+        if name_of_day < 6
+        else date - timedelta(days=(name_of_day - 8))
+    )
+
 
 def get_weekday(number: int = None) -> Union[str, list[str]]:
     weekdays = {
@@ -67,19 +75,13 @@ def get_homework_from_website(
     Returns:
         A response from "Моя школа" with homework as dictionary
     """
-    date_in_str = datetime(datetime.now().year, date.month, date.day)
 
-    day = date_in_str.isoweekday()
-    monday = (
-        date_in_str - timedelta(days=(day - 1))
-        if day < 6
-        else date_in_str - timedelta(days=(day - 8))
-    )
+    monday = get_monday_date(date)
 
-    begin_date = monday.strftime('%Y-%m-%d')
-    end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
+    date_start = monday
+    date_end = (monday + timedelta(days=4))
 
-    logger.info(f'{begin_date} - {end_date}')
+    logger.info(f'{date_start} - {date_end}')
 
     if student_id is None:
         student_id = get_student_id(token)
@@ -102,7 +104,11 @@ def get_homework_from_website(
         'sec-ch-ua-mobile': '?0',
         'sec-ch-ua-platform': '"Windows"',
     }
-    params = {'from': begin_date, 'to': end_date, 'student_id': student_id}
+    params = {
+        'from': date_start.strftime('%Y-%m-%d'),
+        'to': date_end.strftime('%Y-%m-%d'),
+        'student_id': student_id
+    }
     cookie = {'aupd_token': token}
 
     response = requests.get(
@@ -114,9 +120,10 @@ def get_homework_from_website(
     yield response
 
     output = response.json()
-    output['date'] = {}
-    output['date']['begin_date'] = datetime.isoformat(datetime.strptime(begin_date, '%Y-%m-%d'))
-    output['date']['end_date'] = datetime.isoformat(datetime.strptime(end_date, '%Y-%m-%d'))
+    output['date'] = {
+        'begin_date': datetime.isoformat(date_start),
+        'end_date': datetime.isoformat(date_end),
+    }
     yield output
 
 
@@ -184,7 +191,10 @@ def get_person_id(token: str) -> str:
 
 @check_response
 def get_marks(
-    student_id: int, token: str, date: datetime = datetime.now()
+    student_id: int,
+    token: str,
+    date: datetime = datetime.now(),
+    split: bool = True
 ) -> tuple[tuple[datetime], dict]:
     """
     The function for getting marks
@@ -193,17 +203,14 @@ def get_marks(
         student_id (int): Student id
         date (datetime): Date for which you need to analyze. By default - today's date
         token (str): Authorization token for parsing from "Моя школа"
+        split(bool): Should be divided by days
     Returns:
         Tuple of date and marks
     """
+    monday = get_monday_date(date)
 
-    date_in_str = datetime(datetime.now().year, date.month, date.day)
-
-    day = date_in_str.isoweekday()
-    monday = date_in_str - timedelta(days=(day - 1))
-
-    begin_date = monday.strftime('%Y-%m-%d')
-    end_date = (monday + timedelta(days=4)).strftime('%Y-%m-%d')
+    date_start = monday
+    date_end = (monday + timedelta(days=4))
 
     cookie = {'aupd_token': token}
 
@@ -226,7 +233,11 @@ def get_marks(
         'sec-ch-ua-platform': '"Windows"',
     }
 
-    params = {'from': begin_date, 'to': end_date, 'student_id': student_id}
+    params = {
+        'from': date_start.strftime('%Y-%m-%d'),
+        'to': date_end.strftime('%Y-%m-%d'),
+        'student_id': student_id
+    }
 
     response = requests.get(
             'https://authedu.mosreg.ru/api/family/web/v1/marks',
@@ -236,16 +247,26 @@ def get_marks(
     )
     yield response
 
-    yield (monday, monday + timedelta(days=4)), response.json()
+    output = response.json()
+    output['date'] = {
+        'begin_date': date_start,
+        'end_date': date_end,
+    }
+
+    if split:
+        yield split_day(output, 'marks')
+    else:
+        yield output
 
 
 @check_response
-def get_schedule(token: str) -> tuple[datetime, dict]:
+def get_schedule(token: str, split: bool=True) -> tuple[datetime, dict]:
     """
     The function for getting the schedule
 
     Args:
         token (str): Authorization token for parsing from "Моя школа"
+        split (bool): Split the schedule into days
     Returns:
         Tuple of date and schedule
     """
@@ -271,18 +292,17 @@ def get_schedule(token: str) -> tuple[datetime, dict]:
         'sec-ch-ua-platform': '"Windows"',
     }
 
-    today = datetime.now().isoweekday()
-    if today in [5, 6, 7]:
-        schedule_day = 1
-        date = datetime.now() + timedelta(days=7 - today + 1)
-    else:
-        schedule_day = today + 1
-        date = datetime.now() + timedelta(days=1)
-    date_str = date.strftime('%Y-%m-%d')
+    monday = get_monday_date(datetime.now())
+    date_start = monday
+    date_end = (monday + timedelta(days=4))
 
-    logger.debug(f'{date} - {schedule_day}')
+    logger.debug(f'{date_start} - {date_end}')
 
-    params = {'person_ids': person_id, 'begin_date': date_str, 'end_date': date_str}
+    params = {
+        'person_ids': person_id,
+        'begin_date': date_start.strftime('%Y-%m-%d'),
+        'end_date': date_end.strftime('%Y-%m-%d')
+    }
 
     response = requests.get(
             'https://authedu.mosreg.ru/api/eventcalendar/v1/api/events',
@@ -291,7 +311,16 @@ def get_schedule(token: str) -> tuple[datetime, dict]:
     )
     yield response
 
-    yield date, response.json()
+    output = response.json()
+    output['date'] = {
+        'begin_date': date_start,
+        'end_date': date_end,
+    }
+
+    if split:
+        yield split_day(output, 'schedule')
+    else:
+        yield output
 
 def get_links_in_lesson(response: dict[str, dict]) -> dict:
     """
@@ -303,7 +332,7 @@ def get_links_in_lesson(response: dict[str, dict]) -> dict:
         Initial dictionary, but the key links in each lesson will be all links for the lesson
     """
     links = {day: {} for day in get_weekday()[:5]}
-    for day_name, day in response.get('дни').items():
+    for day_name, day in response['days'].items():
         for lesson in day:
             add_mat: dict | None = lesson.get('additional_materials')
             if add_mat:
@@ -329,40 +358,63 @@ def get_links_in_lesson(response: dict[str, dict]) -> dict:
     return response
 
 
-def split_day(response: dict[str, dict]) -> dict:
+def split_day(response: dict[str, dict], func_name: str) -> dict[str, dict]:
     """
-    Split the lessons from response by days.
+    Split the lessons or marks or schedule from response by days.
 
     Args:
-        response (dict[str, dict]): Принимает в себя dict с домашним заданием.
+        response (dict[str, dict]): Takes in dict with homework
+        func_name (str): What needs to be split up
     """
+
     lessons_dict = {
-        'дни': {day: [] for day in get_weekday()[:5]},
-        'date': response['date'],
-    }
-    for i, lesson in enumerate(response['payload'], start=1):
-        date_lesson = datetime.strptime(lesson['date'], '%Y-%m-%d').isoweekday()
-        date_weekday = get_weekday(date_lesson)
-        lessons_dict['дни'][date_weekday].append(lesson)
+            'date': response['date'],
+            'days': {day: [] for day in get_weekday()[:5]}
+        }
+
+    if func_name == 'homework':
+        for lesson in response['payload']:
+            date = datetime.strptime(lesson['date'], '%Y-%m-%d')
+            name_of_day = get_weekday(date.isoweekday())
+            lessons_dict['days'][name_of_day].append(lesson)
+
+    elif func_name == 'schedule':
+        lessons_dict['total_count'] = response['total_count']
+        for lesson in response['response']:
+            date = datetime.fromisoformat(lesson['start_at'])
+            name_of_day = get_weekday(date.isoweekday())
+            lessons_dict['days'][name_of_day].append(lesson)
+
+    elif func_name == 'marks':
+        if response['payload']:
+            for mark in response['payload']:
+                date = datetime.strptime(mark['date'], '%Y-%m-%d')
+                name_of_day = get_weekday(date.isoweekday())
+                lessons_dict['days'][name_of_day].append((mark['subject_name'], mark['value']))
+        else:
+            lessons_dict['days'] = None
+
+    else:
+        raise ValueError('Имя функции неверное!')
+
     return lessons_dict
 
 
 def homework_output(
-    dict_hk: dict = None, need_output: bool = False
+    dict_hk: dict = None
 ) -> Union[dict, str]:
     """
     The function for outputs homework
 
     Args:
         dict_hk (dict): Dictionary with information about homework
-        need_output (bool): Need output text or return dictionary
     Returns:
         Return string with information about homework
     """
-    output = {}
-    for day_name, day in dict_hk['дни'].items():  # прохожу по всем дням
+    output = {'days': {}, 'date': dict_hk['date']}
+    for day_name, day in dict_hk['days'].items():
         day_list = []
-        for lid in day:  # (lesson in day) прохожусь по урокам в дне (day)
+        for lid in day:  # (lesson in day) going over the lessons of the day
             name = lid.get('subject_name')
             if name == 'Труд (технология)':
                 name = 'Технология'
@@ -376,22 +428,10 @@ def homework_output(
             else:
                 lesson_info = {'name': name, 'links': links, 'homework': homework}
                 day_list.append(lesson_info)
-            output[day_name] = day_list
-    output['date'] = dict_hk['date']
+            output['days'][day_name] = day_list
 
-    if not need_output:
-        return output
-    else:
-        return_output = ''
-        for i, one_day in enumerate(output.values(), start=1):
-            day_of_week = get_weekday(i)
-            return_output += f'\n*{day_of_week}*:\n'
-            for number_lesson, lesson in enumerate(one_day, start=1):
-                return_output += (
-                    f'{number_lesson}) {lesson[0]} ({lesson[1]}) - {lesson[2]}\n'
-                )
-        return_output += f'-------------------------------\nВсего задано уроков: {sum(len(day) for day in output.values())}'
-        return return_output
+    return output
+
 
 
 def full_parse(
@@ -399,42 +439,16 @@ def full_parse(
     token:str=None,
     student_id: int = None,
     date: datetime = datetime.now(),
-    output: bool = False,
 ) -> dict:
     """
     The function for full analysis of the schedule
 
     Args
-        token (str): Authorization token for parsing from the gosuslug
+        token (str): Authorization token for parsing from the "госуслуги"
         student_id (int): Student id
         date (datetime): Date for which you need to analyze. Defaults to today's date.
-        output (bool): Need output text or return dictionary
     """
 
     response = get_homework_from_website(token, student_id, date)
-    ready_for_output = get_links_in_lesson(split_day(response))
-    return homework_output(ready_for_output, output)
-
-
-if __name__ == '__main__':
-    while True:
-        try:
-            mode = int(input('Введите режим: '))
-            break
-        except ValueError:
-            print('Некорректный ввод')
-    if mode == 1:
-        while True:
-            try:
-                d_date = int(input('Введите день: ')) or datetime.now().strftime('%d')
-                m_date = int(input('Введите месяц: ')) or datetime.now().strftime('%m')
-                f_date = datetime(datetime.now().year, m_date, d_date)
-                token = input('Введите токен: ')
-                break
-            except ValueError:
-                print('Некорректный формат даты. Попробуйте снова.')
-        print(full_parse(token=token, date=f_date, output=True))
-    elif mode == 2:
-        print(full_parse(date=datetime.now(), output=True))
-    else:
-        print('Режим не найден!')
+    ready_for_output = get_links_in_lesson(split_day(response, 'homework'))
+    return homework_output(ready_for_output)

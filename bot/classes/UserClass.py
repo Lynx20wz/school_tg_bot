@@ -120,7 +120,6 @@ class UserClass:
         setting_notification: bool = None,
         setting_hide_link: bool = None,
         debug: bool = None,
-        save_db: bool = False,
     ):
         """
         The function saves user settings
@@ -139,9 +138,8 @@ class UserClass:
         self.setting_hide_link = setting_hide_link or self.setting_hide_link
         self.debug = debug or self.debug
 
-        if save_db:
-            asyncio.create_task(db.update_user(self))
-            logger.info(f'Новые настройки пользователя {self.username} сохранены!')
+        asyncio.create_task(db.update_user(self))
+        logger.info(f'Новые настройки пользователя {self.username} сохранены!')
 
     def check_token(self) -> bool:
         return self.token is not None and self.student_id is not None

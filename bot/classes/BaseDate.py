@@ -74,7 +74,6 @@ class BaseDate:
                         );
                         CREATE TABLE IF NOT EXISTS homework_cache (
                             id INTEGER PRIMARY KEY,
-                            timestamp INTEGER,
                             cache TEXT
                         );
                         """
@@ -83,25 +82,23 @@ class BaseDate:
             if load_backup and not exists and os.path.exists(self.backup_path):
                 await self.backup_load()
 
-    async def get_homework(self, username: str) -> Optional[tuple[datetime, dict]]:
+    async def get_homework(self, username: str) -> Optional[tuple[dict]]:
         async with aiosqlite.connect(self.path) as db:
             async with db.execute(
                     """
-                        SELECT hc.timestamp, hc.cache
+                        SELECT hc.cache
                         FROM users u
                         INNER JOIN homework_cache hc ON hc.id = u.homework_id
                         WHERE u.username = ?;
                         """,
-                    (username,),
+                    (username,)
             ) as cursor:
-                data = await cursor.fetchone()
+                data = (await cursor.fetchone())[0]
 
-                if data and all(data):
-                    timestamp, hk = data
-                    hk = json.loads(hk)
-                    return datetime.fromisoformat(timestamp), hk
+                if data:
+                    return json.loads(data)
                 else:
-                    return None, None
+                    return None
 
     async def update_user(self, user):
         async with aiosqlite.connect(self.path) as db:
@@ -141,10 +138,11 @@ class BaseDate:
                 if result is None:
                     await self.set_homework_id(username, homework)
                 else:
+                    homework['date']['timestamp'] = datetime.now().isoformat()
                     await db.execute(
                             """
                                 UPDATE homework_cache
-                                SET timestamp = ?, cache = ?
+                                SET cache = ?
                                 WHERE id = (
                                     SELECT homework_id
                                     FROM users 
@@ -152,7 +150,6 @@ class BaseDate:
                                 )
                                 """,
                             (
-                                datetime.now().isoformat(),
                                 json.dumps(homework, ensure_ascii=False),
                                 username,
                             ),
@@ -161,6 +158,8 @@ class BaseDate:
 
     async def set_homework_id(self, username: str, homework: dict):
         async with aiosqlite.connect(self.path) as db:
+            logger.debug(homework['date'])
+            homework['date']['timestamp'] = datetime.now().timestamp()
             logger.debug(homework['date'])
             homework_str = json.dumps(homework, ensure_ascii=False)
             async with db.execute(
@@ -174,8 +173,8 @@ class BaseDate:
                     )
                 else:
                     await db.execute(
-                            f'INSERT INTO homework_cache (timestamp,  cache) VALUES (?, ?)',
-                            (datetime.now().strftime('%Y-%m-%d %H:%M'), homework_str),
+                            f'INSERT INTO homework_cache (cache) VALUES (?)',
+                            (homework_str,),
                     )
                     last_row_id = await db.execute('SELECT last_insert_rowid()')
                     homework_id = (await last_row_id.fetchone())[0]
