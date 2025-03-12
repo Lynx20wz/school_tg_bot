@@ -337,18 +337,18 @@ def get_links_in_lesson(response: dict[str, dict]) -> dict:
             add_mat: dict | None = lesson.get('additional_materials')
             if add_mat:
                 for mat in add_mat:
-                    if re.match('test_.*', mat.get('type')):
+                    if re.search(r'\.(?:png|jpg)$', mat.get('items')[0].get('title') , re.MULTILINE):
                         links[day_name][lesson.get('subject_name')] = [
                             {
-                                'link': item.get('urls')[2].get('url'),
+                                'link': item.get('link'),
                                 'title': item.get('title')
                             }
                             for item in mat.get('items')
                         ]
-                    elif re.search(r'\.(?:png|jpg)$', mat.get('items')[0].get('title') , re.MULTILINE):
+                    else:
                         links[day_name][lesson.get('subject_name')] = [
                             {
-                                'link': item.get('link'),
+                                'link': item.get('urls')[2].get('url'),
                                 'title': item.get('title')
                             }
                             for item in mat.get('items')

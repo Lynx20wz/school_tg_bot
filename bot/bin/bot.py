@@ -80,7 +80,7 @@ async def marks(message: Message, user: UserClass):
 
         if response['days']:
             for name_of_day, marks in response['days'].items():
-                output += f'*{name_of_day}:*\n\t└ '.join(f'*{mark[0]}*: {mark[1]}' for mark in marks)
+                output += f'*{name_of_day}:*\n\t└ ' + '\n\t└ '.join(f'*{mark[0]}*: {mark[1]}' for mark in marks)
         else:
             output += '\t└ Оценки за этот период отсутствуют'
     else:
@@ -89,7 +89,7 @@ async def marks(message: Message, user: UserClass):
         today = get_weekday(datetime.now().isoweekday())
 
         if response['days']:
-            output += f'*{today}:*\n\t└ '.join(f'*{mark[0]}*: {mark[1]}' for mark in response['days'][today])
+            output += f'*{today}:*\n\t└ ' + '\n\t└ '.join(f'*{mark[0]}*: {mark[1]}' for mark in response['days'][today])
         else:
             output += '\t└ Оценки за сегодняшний день отсутствуют'
 

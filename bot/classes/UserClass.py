@@ -82,7 +82,6 @@ class UserClass:
                     user = message
                 else:
                     user_db = await db(message.from_user.username)
-                    logger.debug(f'{user_db} - {func.__name__}')
                     if user_db is not None:
                         try:
                             user = UserClass(
@@ -129,7 +128,6 @@ class UserClass:
             setting_notification (bool): The flag for notifications
             setting_hide_link (bool): The flag for hiding links
             debug (bool): The flag for debugging
-            save_db (bool): If True, the settings will be updated not only in the array of users,
             but also in the database
         """
 
