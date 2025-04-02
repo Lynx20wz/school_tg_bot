@@ -337,7 +337,7 @@ def get_links_in_lesson(response: dict[str, dict]) -> dict:
             add_mat: dict | None = lesson.get('additional_materials')
             if add_mat:
                 for mat in add_mat:
-                    if re.search(r'\.(?:png|jpg)$', mat.get('items')[0].get('title') , re.MULTILINE):
+                    if re.search(r'\.(?:png|jpg|docx)$', mat.get('items')[0].get('title') , re.MULTILINE):
                         links[day_name][lesson.get('subject_name')] = [
                             {
                                 'link': item.get('link'),
