@@ -7,6 +7,7 @@ from aiogram.types import Message
 from bot.bin import username_button, logger
 from bot.classes.BaseDate import db
 
+
 class UserClass:
     def __init__(
         self,
@@ -20,8 +21,7 @@ class UserClass:
         student_id: Optional[int] = None,
         homework_id: Optional[int] = None,
     ):
-        """
-        Initializes the user_class object.
+        """Initializes the user_class object.
 
         Args:
             username (str): The username of the user.
@@ -34,7 +34,6 @@ class UserClass:
             student_id (int, optional): The ID of the student. Defaults to None.
             homework_id (int, optional): The ID of the homework. Defaults to None.
         """
-
         self.username = username
         self.userid = userid
         self.debug = debug
@@ -54,24 +53,23 @@ class UserClass:
         self.homework_id = homework_id
 
         asyncio.create_task(
-                db.add_user(
-                        (
-                            username,
-                            userid,
-                            debug,
-                            setting_dw,
-                            setting_notification,
-                            setting_hide_link,
-                        )
+            db.add_user(
+                (
+                    username,
+                    userid,
+                    debug,
+                    setting_dw,
+                    setting_notification,
+                    setting_hide_link,
                 )
+            )
         )
 
     @staticmethod
     def get_user():
-        """
-        The function returns the user from the database
+        """The function returns the user from the database.
 
-        Returns
+        Returns:
             Function-wrapper for getting user
         """
 
@@ -85,26 +83,24 @@ class UserClass:
                     if user_db is not None:
                         try:
                             user = UserClass(
-                                    message.from_user.username,
-                                    message.from_user.id,
-                                    user_db.get('debug', False),
-                                    user_db.get('setting_dw', False),
-                                    user_db.get('setting_notification', True),
-                                    user_db.get('setting_hide_link', True),
-                                    user_db.get('token'),
-                                    user_db.get('student_id'),
-                                    user_db.get('homework'),
+                                message.from_user.username,
+                                message.from_user.id,
+                                user_db.get('debug', False),
+                                user_db.get('setting_dw', False),
+                                user_db.get('setting_notification', True),
+                                user_db.get('setting_hide_link', True),
+                                user_db.get('token'),
+                                user_db.get('student_id'),
+                                user_db.get('homework'),
                             )
                         except AttributeError:
                             await message.answer(
-                                    'У вас отсутствует имя пользователя! Пожалуйста добавьте его в настройках аккаунта.',
-                                    reply_markup=username_button(),
+                                'У вас отсутствует имя пользователя! Пожалуйста добавьте его в настройках аккаунта.',
+                                reply_markup=username_button(),
                             )
-                            return
+                            return None
                     else:
-                        user = UserClass(
-                                message.from_user.username, message.from_user.id
-                        )
+                        user = UserClass(message.from_user.username, message.from_user.id)
 
                 return await func(message=message, user=user, *args, **kwargs)
 
@@ -120,8 +116,7 @@ class UserClass:
         setting_hide_link: bool = None,
         debug: bool = None,
     ):
-        """
-        The function saves user settings
+        """The function saves user settings.
 
         Args:
             setting_dw (bool): The flag for the delivery notification
@@ -130,7 +125,6 @@ class UserClass:
             debug (bool): The flag for debugging
             but also in the database
         """
-
         self.setting_dw = setting_dw or self.setting_dw
         self.setting_notification = setting_notification or self.setting_notification
         self.setting_hide_link = setting_hide_link or self.setting_hide_link

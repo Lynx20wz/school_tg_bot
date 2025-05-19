@@ -20,9 +20,9 @@ from bot.bin import (
     make_setting_button,
     ExpiredToken,
     NoToken,
-    ServerError
+    ServerError,
+    get_weekday,
 )
-from bot.bin.parser import get_weekday
 from bot.handlers import Handlers
 
 bot = Bot(API_BOT)
@@ -30,13 +30,16 @@ dp = Dispatcher()
 
 MAX_WIDTH_MESSAGE = 33
 
+
 async def _exception_handler(user: UserClass, message: Message, function: callable, *args, **kwargs):
-    """
+    """Handles exceptions that may occur during the execution of a function.
 
     Args:
         user (UserClass): A user for which the function is called
         message (Message): A message for which the function is called
-        function (callable): The function to be called
+        function (callable): The function to be called.
+        *args: Variable length argument list.
+        **kwargs: Arbitrary keyword arguments.
 
     Returns:
         Either notify the user that an exception has happened
@@ -49,7 +52,7 @@ async def _exception_handler(user: UserClass, message: Message, function: callab
     except (ExpiredToken, NoToken, ServerError) as e:
         logger.warning(f'{function.__name__} | {user.username}: Произошла ошибка: {e}')
         await message.answer(e.args[0])
-        return
+        return None
     return result
 
 
@@ -60,10 +63,10 @@ async def start(message: Message, user: UserClass):
     logger.info(f'Бота запустили ({message.from_user.username})')
     with open('bot/loging.png', 'rb') as file:
         await message.answer_photo(
-                photo=BufferedInputFile(file.read(), filename='Логирование'),
-                caption="""Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д. Найдёте ошибки сообщите: @Lynx20wz)
+            photo=BufferedInputFile(file.read(), filename='Логирование'),
+            caption="""Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д. Найдёте ошибки сообщите: @Lynx20wz)
                 \nP.S: Также должен сказать, что в целях отлова ошибок я веду логирование, то есть, я вижу какую функцию вы запустили и ваш никнейм в телеграм (на фото видно).""",
-                reply_markup=main_button(user),
+            reply_markup=main_button(user),
         )
 
 
@@ -76,11 +79,13 @@ async def marks(message: Message, user: UserClass):
         return
 
     if user.setting_dw:
-        output = f'*Оценки за неделю ({response['date']['begin_date'].strftime("%d.%m")} - {response['date']['end_date'].strftime("%d.%m")}):*\n'
+        output = f'*Оценки за неделю ({response["date"]["begin_date"].strftime("%d.%m")} - {response["date"]["end_date"].strftime("%d.%m")}):*\n'
 
         if response['days']:
             for name_of_day, marks in response['days'].items():
-                output += f'*{name_of_day}:*\n\t└ ' + '\n\t└ '.join(f'*{mark[0]}*: {mark[1]}' for mark in marks)
+                if not marks:
+                    continue
+                output += f'*{name_of_day}:*\n\t└ ' + '\n\t└ '.join(f'*{mark[0]}*: {mark[1]}' for mark in marks) + '\n\n'
         else:
             output += '\t└ Оценки за этот период отсутствуют'
     else:
@@ -93,13 +98,11 @@ async def marks(message: Message, user: UserClass):
         else:
             output += '\t└ Оценки за сегодняшний день отсутствуют'
 
-
-
     await message.answer(
-            output,
-            reply_markup=main_button(user),
-            disable_notification=user.setting_notification,
-            parse_mode='Markdown',
+        output,
+        reply_markup=main_button(user),
+        disable_notification=user.setting_notification,
+        parse_mode='Markdown',
     )
 
 
@@ -113,15 +116,12 @@ async def schedule(message: Message, user: UserClass):
     schedule = response.get('days')
 
     if user.setting_dw:
-        output = f'*Расписание на неделю ({response['date']['begin_date'].strftime("%d.%m")} - {response['date']['end_date'].strftime("%d.%m")}):*'
+        output = f'*Расписание на неделю ({response["date"]["begin_date"].strftime("%d.%m")} - {response["date"]["end_date"].strftime("%d.%m")}):*'
         for name_of_day, day in schedule.items():
-            output += (
-            f'\n\n*{name_of_day}:*\n'
-            + '\n'.join(
-                f'\t{"├└"[i == len(day)]} {lesson["subject_name"]} ({lesson["room_number"]})'
-                for i, lesson in enumerate(day, start=1)
-            ))
-        output += f'\n{'-' * min(MAX_WIDTH_MESSAGE, len(output))}\nВсего уроков: {response["total_count"]}\n'
+            output += f'\n\n*{name_of_day}:*\n' + '\n'.join(
+                f'\t{"├└"[i == len(day)]} {lesson["subject_name"]} ({lesson["room_number"]})' for i, lesson in enumerate(day, start=1)
+            )
+        output += f'\n{"-" * min(MAX_WIDTH_MESSAGE, len(output))}\nВсего уроков: {response["total_count"]}\n'
     else:
         today = datetime.now().isoweekday()
         if today in [5, 6, 7]:
@@ -131,29 +131,23 @@ async def schedule(message: Message, user: UserClass):
 
         day = schedule[name_of_day]
 
-        output = (
-                f'*Расписание на {name_of_day} ({datetime.fromisoformat(day[0]["start_at"]).strftime("%d.%m")}):*\n'
-                + '\n'.join(
-                f'\t{"├└"[i == len(day)]} {lesson["subject_name"]} ({lesson["room_number"]})'
-                for i, lesson in enumerate(day, start=1)
-            )
+        output = f'*Расписание на {name_of_day} ({datetime.fromisoformat(day[0]["start_at"]).strftime("%d.%m")}):*\n' + '\n'.join(
+            f'\t{"├└"[i == len(day)]} {lesson["subject_name"]} ({lesson["room_number"]})' for i, lesson in enumerate(day, start=1)
         )
 
-        output += f'\n{'-' * min(MAX_WIDTH_MESSAGE, len(output))}\nВсего уроков: {len(day)}\n'
+        output += f'\n{"-" * min(MAX_WIDTH_MESSAGE, len(output))}\nВсего уроков: {len(day)}\n'
     await message.answer(output, parse_mode='Markdown')
 
 
 @dp.message(F.text == 'Домашнее задание 📓')
 @UserClass.get_user()
 async def homework(message: Message, user: UserClass):
-    """
-    Sends the text of homework in accordance with the user settings.
+    """Sends the text of homework in accordance with the user settings.
 
     Args:
         message (Message): Received message.
         user (UserClass): User object.
     """
-
     logger.info(f'Вызвана домашка ({message.from_user.username})')
 
     msg = await message.answer('Ожидайте... ⌛')
@@ -170,25 +164,23 @@ async def homework(message: Message, user: UserClass):
 
         await db.save_homework(user.username, hk)
 
-    async def get_output_for_day(day_name: str) -> str:
+    async def get_output_for_day(number_of_day: int) -> str:
+        day_name = get_weekday(number_of_day)
         one_day = hk['days'].get(day_name)
         begin_date, end_date, _ = map(
-                lambda x: datetime.fromisoformat(x).strftime('%d.%m'),
-                hk.get('date', {}).values(),
+            lambda x: datetime.fromisoformat(x).strftime('%d.%m'),
+            hk.get('date', {}).values(),
         )
 
-        output = f'*Домашка на {day_name} ({begin_date + r"-" + end_date if user.setting_dw else begin_date})*:\n'
+        date = (datetime.strptime(begin_date, '%d.%m') + timedelta(days=number_of_day - 1)).strftime('%d.%m')
+
+        output = f'*Домашка на {day_name} ({date})*:\n'
         for lesson in one_day:
             if lesson['links']:
-                logger.debug(f'{user.setting_hide_link=}')
                 if user.setting_hide_link:
-                    lesson['links'] = (
-                        f'\t└ {"\n\t\t\t".join(f"[{(exam['title'])}]({exam['link']})" for  exam in lesson["links"])}\n'
-                    )
+                    lesson['links'] = f'\t└ {"\n\t\t\t".join(f"[{(exam['title'])}]({exam['link']})" for exam in lesson["links"])}\n'
                 else:
-                    lesson['links'] = (
-                        f'\t└ {"\n\t\t\t".join(f"{exam['link'].replace('_', r'\_')}" for exam in lesson["links"])}\n'
-                    )
+                    lesson['links'] = f'\t└ {"\n\t\t\t".join(f"{exam['link'].replace('_', r'\_')}" for exam in lesson["links"])}\n'
             else:
                 lesson['links'] = ''
             output += f'*• {lesson["name"]}:*\n\t{"├" if lesson["links"] else "└"} _{lesson["homework"].strip()}_\n{lesson["links"]}'
@@ -199,7 +191,7 @@ async def homework(message: Message, user: UserClass):
     if user.setting_dw:  # if setting_dw is True, print for 5 days
         output = ''
         for i in range(1, 6):
-            output += await get_output_for_day(parser.get_weekday(i)) + '\n'
+            output += await get_output_for_day(i) + '\n\n\n'
     else:  # if False, for one day.
         today_index = datetime.now().isoweekday()
 
@@ -209,20 +201,19 @@ async def homework(message: Message, user: UserClass):
         else:
             next_day_index = today_index + 1
 
-        day_name = parser.get_weekday(next_day_index)
-        output = await get_output_for_day(day_name)
+        output = await get_output_for_day(next_day_index)
 
     await message.answer(
-            output,
-            parse_mode='Markdown',
-            disable_notification=user.setting_notification,
+        output,
+        parse_mode='Markdown',
+        disable_notification=user.setting_notification,
     )
 
 
 @dp.message(F.text == 'Соц. сети класса 💬')
 async def social_networks(message):
     await message.answer(
-            text=r"""
+        text=r"""
 Конечно\! Держи:
 
 [Официальная группа в WhatsApp](https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg) \(создатель @Lynx20wz\)
@@ -230,8 +221,8 @@ async def social_networks(message):
 
 Если ссылки не работают обратиться к @Lynx20wz\} 
 """,
-            reply_markup=social_networks_button(),
-            parse_mode='MarkdownV2',
+        reply_markup=social_networks_button(),
+        parse_mode='MarkdownV2',
     )
 
 
@@ -240,9 +231,9 @@ async def social_networks(message):
 @UserClass.get_user()
 async def settings(message: Message, user: UserClass):
     logger.info(f'Вызваны настройки ({message.from_user.username})')
-    murkup = make_setting_button(user)
+    markup = make_setting_button(user)
     await message.answer(
-            text=r"""
+        text=r"""
 Настройки:
 
 *Выдача на день\неделю:*
@@ -258,9 +249,9 @@ async def settings(message: Message, user: UserClass):
     1) *"Скрыть ссылки":* ссылки будут замаскированны под "ЦДЗ".
     2) *"Показать ссылки":* ссылки будут выведены напрямую.
             """,
-            reply_markup=murkup,
-            parse_mode='Markdown',
-            disable_notification=user.setting_notification,
+        reply_markup=markup,
+        parse_mode='Markdown',
+        disable_notification=user.setting_notification,
     )
 
 
@@ -271,13 +262,13 @@ async def change_delivery(message: Message, user: UserClass):
         user.setting_dw = False
     elif message.text == 'Выдача на день':
         user.setting_dw = True
-    murkup = make_setting_button(user)
+    markup = make_setting_button(user)
     await user.save_settings(setting_dw=user.setting_dw)
     logger.info(f'Изменены настройки выдачи ({message.from_user.username} - {user.setting_dw} ({user.data}))')
     await message.answer(
-            'Настройки успешно изменены!',
-            reply_markup=murkup,
-            disable_notification=user.setting_notification,
+        'Настройки успешно изменены!',
+        reply_markup=markup,
+        disable_notification=user.setting_notification,
     )
 
 
@@ -288,13 +279,13 @@ async def change_notification(message: Message, user: UserClass):
         user.setting_notification = False
     elif message.text == 'Уведомления выкл.':
         user.setting_notification = True
-    murkup = make_setting_button(user)
+    markup = make_setting_button(user)
     await user.save_settings(setting_notification=user.setting_notification)
     logger.info(f'Изменены настройки уведомлений ({message.from_user.username} - {user.setting_notification} ({user.data}))')
     await message.answer(
-            'Настройки успешно изменены!',
-            reply_markup=murkup,
-            disable_notification=user.setting_notification,
+        'Настройки успешно изменены!',
+        reply_markup=markup,
+        disable_notification=user.setting_notification,
     )
 
 
@@ -305,15 +296,13 @@ async def change_link(message: Message, user: UserClass):
         user.setting_hide_link = True
     elif message.text == 'Показать ссылки':
         user.setting_hide_link = False
-    murkup = make_setting_button(user)
+    markup = make_setting_button(user)
     await user.save_settings(setting_hide_link=user.setting_hide_link)
-    logger.info(
-            f'Изменены настройки ссылок ({message.from_user.username} - {user.setting_hide_link} ({user.data}))'
-    )
+    logger.info(f'Изменены настройки ссылок ({message.from_user.username} - {user.setting_hide_link} ({user.data}))')
     await message.answer(
-            'Настройки успешно изменены!',
-            reply_markup=murkup,
-            disable_notification=user.setting_notification,
+        'Настройки успешно изменены!',
+        reply_markup=markup,
+        disable_notification=user.setting_notification,
     )
 
 
@@ -322,23 +311,22 @@ async def change_link(message: Message, user: UserClass):
 async def exit_settings(message: Message, user: UserClass):
     logger.info(f'Вышел из настроек ({message.from_user.username})')
     await user.save_settings(
-            setting_dw=user.setting_dw,
-            setting_notification=user.setting_notification,
-            setting_hide_link=user.setting_hide_link,
-            debug=user.debug,
+        setting_dw=user.setting_dw,
+        setting_notification=user.setting_notification,
+        setting_hide_link=user.setting_hide_link,
+        debug=user.debug,
     )
     await message.answer(
-            'Главное меню',
-            reply_markup=main_button(user),
-            disable_notification=user.setting_notification,
+        'Главное меню',
+        reply_markup=main_button(user),
+        disable_notification=user.setting_notification,
     )
 
 
 @dp.message(F.text == 'Удалить аккаунт')
 @UserClass.get_user()
 async def delete_user(message: Message, user: UserClass):
-    """
-    Complete deletion of a user
+    """Complete deletion of a user.
 
     Args:
         message (Message): Received message

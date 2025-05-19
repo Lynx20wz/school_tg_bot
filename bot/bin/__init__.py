@@ -20,10 +20,12 @@ __all__ = (
     # Classes
     'UserClass',
     'BaseDate',
-    'db'
+    'db',
+    'get_weekday',
 )
 
 from sys import stdout, exit
+from typing import Union
 
 from environs import Env, EnvError
 from loguru import logger
@@ -47,14 +49,30 @@ log_format = '{time:H:mm:ss} | "{function}" | {line} ({module}) | <level>{level}
 
 logger.remove()
 logger.add(
-        sink=stdout,
-        format=log_format,
-        backtrace=True,
-        diagnose=True,
-        level='DEBUG',
-        colorize=True,
+    sink=stdout,
+    format=log_format,
+    backtrace=True,
+    diagnose=True,
+    level='DEBUG',
+    colorize=True,
 )
 logger.add(format=log_format, sink='temp/log.log', level='INFO', mode='w')
+
+
+def get_weekday(number: int = None) -> Union[str, list[str]]:
+    weekdays = {
+        1: 'Понедельник',
+        2: 'Вторник',
+        3: 'Среда',
+        4: 'Четверг',
+        5: 'Пятница',
+        6: 'Суббота',
+        7: 'Воскресенье',
+    }
+    if not number:
+        return [name_day for name_day in weekdays.values()]
+    else:
+        return weekdays.get(number)
 
 # To avoid cyclical imports
 from bot.classes import *

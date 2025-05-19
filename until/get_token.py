@@ -1,5 +1,4 @@
-"""
-Tool using selenium to get authorization token for "gosuslugi" by login and password
+"""Tool using selenium to get authorization token for "gosuslugi" by login and password.
 
 NOT USED NOW due to impossibility to provide security guarantees for login data
 """
@@ -20,12 +19,8 @@ def get_token(login, password):
     logger.debug(f'{login}, {password}')
     service = Service('.//geckodriver.exe')
     firefox_options = Options()
-    firefox_options.add_argument(
-            '--headless'
-    )  # Running in silent mode (without browser window)
-    firefox_options.add_argument(
-            '--disable-dev-shm-usage'
-    )
+    firefox_options.add_argument('--headless')  # Running in silent mode (without browser window)
+    firefox_options.add_argument('--disable-dev-shm-usage')
     driver = webdriver.Firefox(service=service, options=firefox_options)
     logger.info('Ищу куки!')
     try:
@@ -33,23 +28,15 @@ def get_token(login, password):
         driver.get('https://authedu.mosreg.ru/diary/schedules/schedule/')
 
         logger.debug('На гос. услугах')
-        WebDriverWait(driver, 10).until(
-                ec.element_to_be_clickable(
-                        (By.CLASS_NAME, 'loginForm_LoginFormButtonGos__FlI2F')
-                )
-        ).click()
+        WebDriverWait(driver, 10).until(ec.element_to_be_clickable((By.CLASS_NAME, 'loginForm_LoginFormButtonGos__FlI2F'))).click()
 
-        username_field = WebDriverWait(driver, 10).until(
-                ec.visibility_of_element_located((By.NAME, 'Телефон  /  Email  /  СНИЛС'))
-        )
+        username_field = WebDriverWait(driver, 10).until(ec.visibility_of_element_located((By.NAME, 'Телефон  /  Email  /  СНИЛС')))
         password_field = driver.find_element(By.NAME, 'Пароль')
 
         username_field.send_keys(login)
         password_field.send_keys(password)
 
-        WebDriverWait(driver, 10).until(
-                ec.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Войти')]"))
-        ).click()
+        WebDriverWait(driver, 10).until(ec.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Войти')]"))).click()
         logger.debug('Захожу на школьный портал')
         time.sleep(1)
         cookies = driver.get_cookies()

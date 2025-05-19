@@ -16,23 +16,23 @@
   
 1. **Получение расписания**:  
    - Пользователи могут запрашивать расписание на текущий день или на неделю 📆.  
-  
+
 2. **Домашнее задание**:  
    - Бот позволяет пользователям видеть свои домашние задания на текущий день или на всю неделю в зависимости от  
       настроек 🛠️.  
    - Домашние задания загружаются с сайта школы, что обеспечивает актуальность данных 💾.  
-  
+
 3. **Настройки пользователя**:  
    - Пользователи могут настраивать предпочтения получения информации о домашних заданиях (на день или на неделю) и  
       уведомлениях (включенные или выключенные).  
    - Все настройки удобно сохраняются и могут быть изменены в любое время ⏳.  
-  
+
 4. **Логирование**:  
    - Все действия пользователей и ошибки логируются с помощью библиотеки `loguru`, что позволяет отслеживать работу  
       бота и быстро находить возможные проблемы 🔍.  
-  
+
 ### Технические детали:  
-  
+
 - #### **Используемые библиотеки**:  
 - [![  
   `Aiogram`](https://img.shields.io/badge/aiogram-3.14.0-blue?style=flat-square)](https://pypi.org/project/aiogram/) -  
@@ -131,24 +131,26 @@ access to the necessary information (unlike the school portal 😁).
 ### Main Functions:
 
 1. **Getting a schedule**:
-- Users can request a schedule for the current day or for the week 📆. 
- 
+    - Users can request a schedule for the current day or for the week 📆.
+
 2. **Homework**:
-- The bot allows users to see their homework for the current day or for the whole week, depending on
-the settings 🛠️. 
- - Homework assignments are downloaded from the school's website, which ensures that the data is up-to-date 💾. 
- 
+    - The bot allows users to see their homework for the current day or for the whole week,
+      depending on
+      the settings 🛠️.
+    - Homework assignments are downloaded from the school's website, which ensures that the data is
+      up-to-date 💾.
+
 3. **User Settings**:
    - Users can customize preferences for receiving homework information (daily or weekly) and notifications (on or off).
       notifications (on or off).
    - All settings are conveniently saved and can be changed at any time ⏳.
-  
+
 4. **Logging**:  
    - All user actions and errors are logged using the `loguru` library, which allows you to track the work of the 
       bot and quickly find possible problems 🔍.
-  
+
 ### Technical details:
-  
+
 - #### **Libraries used**: 
 - [![  
   `Aiogram`](https://img.shields.io/badge/aiogram-3.14.0-blue?style=flat-square)](https://pypi.org/project/aiogram/) -  

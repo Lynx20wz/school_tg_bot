@@ -1,0 +1,30 @@
+[project]
+name = "school-tg-bot"
+version = "0.1.0"
+description = "Telegram bot for school"
+readme = "README.md"
+requires-python = ">=3.13.3"
+dependencies = [
+    "aiogram==3.20.0",
+    "aiosqlite>=0.21.0",
+    "colorama~=0.4.6",
+    "environs==14.1.1",
+    "loguru~=0.7.2",
+    "pyside6==6.9.0",
+    "requests~=2.32.3",
+]
+
+[tool.ruff]
+line-length = 150
+indent-width = 4
+
+[tool.ruff.lint]
+select = ["D"]
+ignore = ["D101", "D102", "D103", "D104", "D107", "D100"]
+extend-select = ["D400"]
+pydocstyle.convention = "google"
+
+[tool.ruff.format]
+indent-style = "space"
+quote-style = "single"
+

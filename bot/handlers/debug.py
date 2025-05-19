@@ -15,23 +15,21 @@ async def developer(message, user):
     user.debug = True
     await user.save_settings(debug=user.debug, save_db=True)
     logger.warning(f'{user.username} получил роль разработчика!')
-    await message.answer(
-            f'Удачной разработки, {user.username}! 😉', reply_markup=main_button(user)
-    )
+    await message.answer(f'Удачной разработки, {user.username}! 😉', reply_markup=main_button(user))
 
 
 @debug_router.message(F.text == 'Команды дебага')
 async def command_debug(message):
     await message.answer(
-            f"""Добро пожаловать разработчик, тут все нужные для тебя команды!
+        f"""Добро пожаловать разработчик, тут все нужные для тебя команды!
     
 **Доступные команды**:
 **/sql** __<command>__ | __<args>__ - сделать SQL запрос
 **/user** (/u) __<username>__ - получить информацию о пользователе
 **/users** - получить информацию о всех пользователях
 **/logfile** - получить логи бота""",
-            reply_markup=make_debug_button(),
-            parse_mode='Markdown',
+        reply_markup=make_debug_button(),
+        parse_mode='Markdown',
     )
 
 
@@ -46,9 +44,9 @@ async def get_user(message):
 async def exit_debug_commands(message, user):
     logger.info(f'Вышел из команд дебага ({message.from_user.username})')
     await message.answer(
-            'Главное меню',
-            reply_markup=main_button(user),
-            disable_notification=user.setting_notification,
+        'Главное меню',
+        reply_markup=main_button(user),
+        disable_notification=user.setting_notification,
     )
 
 
@@ -77,7 +75,7 @@ async def sql_request(message, command):
     elif command_args is not None:
         user_data = await db(command_args)
         if user_data is None:
-            await message.answer(f'Пользователь "{command_args}" не найден!')
+            await message.answer(f'Пользователь "{command_args}" не обнаружен!')
         else:
             await message.answer(json.dumps(user_data, indent=4, ensure_ascii=False))
     else:
