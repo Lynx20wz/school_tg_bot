@@ -5,8 +5,9 @@ from typing import Union, Callable, Optional
 from aiogram.types import Message
 
 from bot.bin import username_button, logger
-from bot.classes.BaseDate import db
+from bot.classes.BaseDate import BaseDate
 
+db = BaseDate()
 
 class UserClass:
     def __init__(

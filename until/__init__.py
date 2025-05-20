@@ -5,6 +5,7 @@ __all__ = (
     'make_debug_button',
     'social_networks_button',
     'username_button',
+    # Exceptions
     'ExpiredToken',
     'NoToken',
     'ServerError',

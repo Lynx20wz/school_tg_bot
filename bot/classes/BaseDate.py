@@ -5,48 +5,25 @@ from typing import Optional, Union
 
 import aiosqlite
 
-from bot.bin import BD_PATH, logger, BD_BACKUP_PATH
+from bot.bin import logger, BD_PATH, BD_BACKUP_PATH
+from bot.classes.Homework import Lesson, StudyDay, Homework
 
 
 class BaseDate:
-    def __init__(self, path: str, backup_path: str):
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):  # Singleton
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            logger.debug('An instance of BaseDate class was created')
+        return cls._instance
+
+    def __init__(self, path: str = BD_PATH, backup_path: str = BD_BACKUP_PATH):
         self.path = path
         self.backup_path = backup_path
 
-    async def add_user(self, user: tuple) -> dict[str, Union[str, int, bool]]:
-        async with aiosqlite.connect(self.path) as db:
-            db.row_factory = aiosqlite.Row
-            while True:
-                async with db.execute('SELECT userid FROM users WHERE userid = ?', (user[1],)) as cursor:
-                    res = await cursor.fetchone()
-                    if res:
-                        return dict(res)
-                logger.info(f'{user[0]} was added in the database')
-                await db.execute(
-                    """
-                    INSERT INTO users (username, userid, debug, setting_dw, setting_notification, setting_hide_link) 
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (*user,),
-                )
-                await db.commit()
-
     async def __call__(self, username: str = None) -> dict[str, Union[str, int, bool]]:
         return await self.get_user(username)
-
-    async def get_user(self, username: str = None
-                       ) -> Union[dict[str, Union[str, bool, int]], list[dict[str, Union[str, bool, int]]]]:
-        async with aiosqlite.connect(self.path) as db:
-            db.row_factory = aiosqlite.Row
-
-            if username:
-                async with db.execute('SELECT * FROM users WHERE username = ?', (username,)) as cursor:
-                    user = await cursor.fetchone()
-                    return dict(user) if user else None
-            else:
-                async with db.execute('SELECT * FROM users') as cursor:
-                    users = await cursor.fetchall()
-                    return [dict(user) for user in users]
 
     async def restart_bot(self, load_backup: bool = True):
         exists = os.path.exists(self.path)
@@ -67,7 +44,24 @@ class BaseDate:
                 );
                 CREATE TABLE IF NOT EXISTS homework_cache (
                     id INTEGER PRIMARY KEY,
-                    cache TEXT
+                    begin TEXT NOT NULL,
+                    end TEXT NOT NULL,
+                    timestamp TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS study_days (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    homework_id INTEGER,
+                    name TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    FOREIGN KEY (homework_id) REFERENCES homework_cache(id) ON DELETE CASCADE
+                );      
+                CREATE TABLE IF NOT EXISTS lessons (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    study_day_id INTEGER,
+                    name TEXT NOT NULL,
+                    homework TEXT,
+                    links TEXT,
+                    FOREIGN KEY (study_day_id) REFERENCES study_days(id) ON DELETE CASCADE
                 );
                 """
             )
@@ -75,22 +69,43 @@ class BaseDate:
             if load_backup and not exists and os.path.exists(self.backup_path):
                 await self.backup_load()
 
-    async def get_homework(self, username: str) -> Optional[tuple[dict]]:
+    # User
+    async def add_user(self, user: tuple) -> dict[str, Union[str, int, bool]]:
         async with aiosqlite.connect(self.path) as db:
-            async with db.execute(
-                """
-                SELECT hc.cache
-                FROM users u
-                INNER JOIN homework_cache hc ON hc.id = u.homework_id
-                WHERE u.username = ?;""",
-                (username,),
-            ) as cursor:
-                data = (await cursor.fetchone())[0]
+            db.row_factory = aiosqlite.Row
+            while True:
+                async with db.execute(
+                    'SELECT userid FROM users WHERE userid = ?', (user[1],)
+                ) as cursor:
+                    res = await cursor.fetchone()
+                    if res:
+                        return dict(res)
+                logger.info(f'{user[0]} was added in the database')
+                await db.execute(
+                    """
+                    INSERT INTO users (username, userid, debug, setting_dw, setting_notification, setting_hide_link) 
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (*user,),
+                )
+                await db.commit()
 
-                if data:
-                    return json.loads(data)
-                else:
-                    return None
+    async def get_user(
+        self, username: str = None
+    ) -> Union[dict[str, Union[str, bool, int]], list[dict[str, Union[str, bool, int]]]]:
+        async with aiosqlite.connect(self.path) as db:
+            db.row_factory = aiosqlite.Row
+
+            if username:
+                async with db.execute(
+                    'SELECT * FROM users WHERE username = ?', (username,)
+                ) as cursor:
+                    user = await cursor.fetchone()
+                    return dict(user) if user else None
+            else:
+                async with db.execute('SELECT * FROM users') as cursor:
+                    users = await cursor.fetchall()
+                    return [dict(user) for user in users]
 
     async def update_user(self, user):
         async with aiosqlite.connect(self.path) as db:
@@ -103,7 +118,8 @@ class BaseDate:
                     setting_hide_link = ?,
                     token = ?,
                     student_id = ?
-                WHERE username = ?""",
+                WHERE username = ?
+                """,
                 (
                     user.debug,
                     user.setting_dw,
@@ -116,44 +132,26 @@ class BaseDate:
             )
             await db.commit()
 
-    async def save_homework(self, username: str, homework: dict):
+    async def delete_user(self, userid: str):
         async with aiosqlite.connect(self.path) as db:
-            async with db.execute(
+            await db.execute('DELETE FROM users WHERE userid = ?', (userid,))
+            await db.execute(
                 """
-                SELECT id
-                FROM homework_cache
-                WHERE id = (
-                    SELECT homework_id
-                    FROM users
-                    WHERE username = ?
-                )""",
-                (username,),
-            ) as cursor:
-                result = await cursor.fetchone()
-                """
-                If result == None, we bind the user to a new cell in the table where we put the token.
-                If result != None, we check that there is no such cache in the table.
-                If there is, delete the record with the token and bind the user there
-                """
-                if result is None:
-                    await self.set_homework_id(username, homework)
-                else:
-                    homework['date']['timestamp'] = datetime.now().isoformat()
-                    await db.execute(
-                        """
-                        UPDATE homework_cache
-                        SET cache = ?
-                        WHERE id = (
-                            SELECT homework_id
-                            FROM users 
-                            WHERE username = ?
-                        )""",
-                        (
-                            json.dumps(homework, ensure_ascii=False),
-                            username,
-                        ),
+                    DELETE FROM homework_cache
+                    WHERE id IN (
+                        SELECT homework_id 
+                        FROM users 
+                        WHERE userid = ?
                     )
-                    await db.commit()
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM users
+                        WHERE homework_id = homework_cache.id
+                    )
+                    """,
+                (userid, userid),
+            )
+            await db.commit()
 
     async def set_homework_id(self, username: str, homework: dict):
         async with aiosqlite.connect(self.path) as db:
@@ -161,7 +159,9 @@ class BaseDate:
             homework['date']['timestamp'] = datetime.now().timestamp()
             logger.debug(homework['date'])
             homework_str = json.dumps(homework, ensure_ascii=False)
-            async with db.execute('SELECT id FROM homework_cache WHERE cache = ?', (homework_str,)) as cursor:
+            async with db.execute(
+                'SELECT id FROM homework_cache WHERE cache = ?', (homework_str,)
+            ) as cursor:
                 result = await cursor.fetchone()
                 if result:
                     await db.execute(
@@ -183,13 +183,163 @@ class BaseDate:
 
     async def get_token(self, username: str) -> str:
         async with aiosqlite.connect(self.path) as db:
-            async with db.execute('SELECT token FROM users WHERE username = ?', (username,)) as result:
+            async with db.execute(
+                'SELECT token FROM users WHERE username = ?', (username,)
+            ) as result:
                 token = await result.fetchone()
                 if token:
                     return token[0]
                 return None
 
-    async def custom_command(self, command: str, args=None) -> list | dict[str, Union[str, int, bool]]:
+    # Homework
+    async def save_homework(self, username: str, homework: Homework):
+        async with aiosqlite.connect(self.path) as db:
+            # Check if there is a homework_id for the user
+            async with db.execute(
+                """
+                SELECT homework_id
+                FROM users
+                WHERE username = ?
+                """,
+                (username,),
+            ) as cursor:
+                result = await cursor.fetchone()
+
+            if not result[0]:
+                # If there is no homework_id, create a new record
+                async with db.execute(
+                    """
+                    INSERT INTO homework_cache (begin, end, timestamp)
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        homework.begin.isoformat(),
+                        homework.end.isoformat(),
+                        datetime.now().isoformat(),
+                    ),
+                ) as cursor:
+                    homework_id = cursor.lastrowid
+                await db.execute(
+                    """
+                    UPDATE users
+                    SET homework_id = ?
+                    WHERE username = ?
+                    """,
+                    (homework_id, username),
+                )
+            else:
+                # If homework_id exists, update timestamp
+                homework_id = result[0]
+                await db.execute(
+                    """
+                    UPDATE homework_cache
+                    SET timestamp = ?
+                    WHERE id = ?
+                    """,
+                    (datetime.now().isoformat(), homework_id),
+                )
+                # Clear old data
+                await db.execute(
+                    """
+                    DELETE FROM study_days
+                    WHERE homework_id = ?
+                    """,
+                    (homework_id,),
+                )
+
+            # Save study_days and lessons from homework
+            for i, day in enumerate(homework):
+                async with db.execute(
+                    """
+                    INSERT INTO study_days (homework_id, name, date)
+                    VALUES (?, ?, ?)
+                    """,
+                    (homework_id, day.name, day.date.isoformat()),
+                ) as cursor:
+                    study_day_id = cursor.lastrowid
+
+                # Save lessons
+                for lesson in day.lessons:
+                    await db.execute(
+                        """
+                        INSERT INTO lessons (study_day_id, name, homework, links)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (
+                            study_day_id,
+                            lesson.name,
+                            lesson.homework,
+                            json.dumps(lesson.links, ensure_ascii=False),
+                        ),
+                    )
+
+            await db.commit()
+
+    async def get_homework(self, username: str) -> Optional[tuple[Homework, datetime]]:
+        async with aiosqlite.connect(self.path) as db:
+            # Get homework_id, begin, end, and timestamp
+            async with db.execute(
+                """
+                    SELECT hc.id, hc.begin, hc.end, hc.timestamp
+                    FROM users u
+                             INNER JOIN homework_cache hc ON hc.id = u.homework_id
+                    WHERE u.username = ?
+                    """,
+                (username,),
+            ) as cursor:
+                result = await cursor.fetchone()
+                if not result:
+                    return None
+                homework_id, begin, end, timestamp = result
+                begin = datetime.fromisoformat(begin)
+                end = datetime.fromisoformat(end)
+                timestamp = datetime.fromisoformat(timestamp)
+
+            # Get study_days
+            days = []
+            async with db.execute(
+                """
+                    SELECT id, name, date
+                    FROM study_days
+                    WHERE homework_id = ?
+                    ORDER BY date
+                    """,
+                (homework_id,),
+            ) as cursor:
+                async for day_row in cursor:
+                    day_id, name, date = day_row
+                    date = datetime.fromisoformat(date)
+
+                    # Get lessons for study_day
+                    lessons = []
+                    async with db.execute(
+                        """
+                            SELECT name, homework, links
+                            FROM lessons
+                            WHERE study_day_id = ?
+                            """,
+                        (day_id,),
+                    ) as lesson_cursor:
+                        async for lesson_row in lesson_cursor:
+                            lesson_name, lesson_homework, lesson_links = lesson_row
+                            lessons.append(
+                                Lesson(
+                                    name=lesson_name,
+                                    homework=lesson_homework,
+                                    links=json.loads(lesson_links) if lesson_links else [],
+                                )
+                            )
+
+                    days.append(StudyDay(name=name, date=date, lessons=lessons))
+
+            # Create Homework object
+            homework = Homework(id_=homework_id, begin=begin, end=end, days=days)
+            return homework, timestamp
+
+    # Other
+    async def custom_command(
+        self, command: str, args=None
+    ) -> list | dict[str, Union[str, int, bool]]:
         async with aiosqlite.connect(self.path) as db:
             if args is not None:
                 res = await db.execute(command, tuple(args))
@@ -199,6 +349,7 @@ class BaseDate:
             return await res.fetchall()
 
     async def backup_create(self):
+        """The function creates a backup of the database."""
         if os.path.exists(self.path):
             logger.debug('Создание бэкапа')
             async with aiosqlite.connect(self.path) as db:
@@ -208,10 +359,8 @@ class BaseDate:
             logger.debug('Бэкап не создан, так как база данных не существует')
 
     async def backup_load(self):
+        """The function loads a backup of the database if "-back" isn't in arguments."""
         logger.debug('Загрузка бэкапа')
         async with aiosqlite.connect(self.backup_path) as backup_db:
             async with aiosqlite.connect(self.path) as db:
                 await backup_db.backup(db)
-
-
-db = BaseDate(BD_PATH, BD_BACKUP_PATH)

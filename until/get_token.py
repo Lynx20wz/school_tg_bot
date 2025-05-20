@@ -28,15 +28,21 @@ def get_token(login, password):
         driver.get('https://authedu.mosreg.ru/diary/schedules/schedule/')
 
         logger.debug('На гос. услугах')
-        WebDriverWait(driver, 10).until(ec.element_to_be_clickable((By.CLASS_NAME, 'loginForm_LoginFormButtonGos__FlI2F'))).click()
+        WebDriverWait(driver, 10).until(
+            ec.element_to_be_clickable((By.CLASS_NAME, 'loginForm_LoginFormButtonGos__FlI2F'))
+        ).click()
 
-        username_field = WebDriverWait(driver, 10).until(ec.visibility_of_element_located((By.NAME, 'Телефон  /  Email  /  СНИЛС')))
+        username_field = WebDriverWait(driver, 10).until(
+            ec.visibility_of_element_located((By.NAME, 'Телефон  /  Email  /  СНИЛС'))
+        )
         password_field = driver.find_element(By.NAME, 'Пароль')
 
         username_field.send_keys(login)
         password_field.send_keys(password)
 
-        WebDriverWait(driver, 10).until(ec.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Войти')]"))).click()
+        WebDriverWait(driver, 10).until(
+            ec.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Войти')]"))
+        ).click()
         logger.debug('Захожу на школьный портал')
         time.sleep(1)
         cookies = driver.get_cookies()

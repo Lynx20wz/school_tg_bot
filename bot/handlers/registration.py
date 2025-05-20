@@ -3,9 +3,11 @@ from aiogram.filters import StateFilter, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
-from bot.bin import UserClass, db, token_button, main_button
+from bot.bin import token_button, main_button
 from bot.bin.parser import get_student_id
+from bot.classes import UserClass, BaseDate
 
+db = BaseDate()
 auth_router = Router()
 
 

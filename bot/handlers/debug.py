@@ -4,8 +4,10 @@ from aiogram import Router, F
 from aiogram.filters import Command
 from loguru import logger
 
-from bot.bin import UserClass, db, main_button, make_debug_button
+from bot.bin import main_button, make_debug_button
+from bot.classes import UserClass, BaseDate
 
+db = BaseDate()
 debug_router = Router()
 
 

@@ -10,28 +10,31 @@ from aiogram.types import (
 )
 
 from bot.bin import (
-    UserClass,
     API_BOT,
     logger,
-    db,
     parser,
     main_button,
     social_networks_button,
     make_setting_button,
+    get_weekday,
     ExpiredToken,
     NoToken,
     ServerError,
-    get_weekday,
 )
+from bot.classes import BaseDate, UserClass, Homework
+from bot.classes.Homework import StudyDay
 from bot.handlers import Handlers
 
 bot = Bot(API_BOT)
 dp = Dispatcher()
+db = BaseDate()
 
 MAX_WIDTH_MESSAGE = 33
 
 
-async def _exception_handler(user: UserClass, message: Message, function: callable, *args, **kwargs):
+async def _exception_handler(
+    user: UserClass, message: Message, function: callable, **kwargs
+):
     """Handles exceptions that may occur during the execution of a function.
 
     Args:
@@ -48,7 +51,9 @@ async def _exception_handler(user: UserClass, message: Message, function: callab
     try:
         if not user.token:
             raise NoToken()
-        result = function(token=user.token, *args, **kwargs)
+        if 'token' not in kwargs:
+            kwargs['token'] = user.token
+        result = function(**kwargs)
     except (ExpiredToken, NoToken, ServerError) as e:
         logger.warning(f'{function.__name__} | {user.username}: Произошла ошибка: {e}')
         await message.answer(e.args[0])
@@ -74,7 +79,7 @@ async def start(message: Message, user: UserClass):
 @UserClass.get_user()
 async def marks(message: Message, user: UserClass):
     logger.info(f'Вызваны оценки ({message.from_user.username})')
-    response = await _exception_handler(user, message, parser.get_marks, user.student_id)
+    response = await _exception_handler(user, message, parser.get_marks, student_id = user.student_id)
     if not response:
         return
 
@@ -85,16 +90,23 @@ async def marks(message: Message, user: UserClass):
             for name_of_day, marks in response['days'].items():
                 if not marks:
                     continue
-                output += f'*{name_of_day}:*\n\t└ ' + '\n\t└ '.join(f'*{mark[0]}*: {mark[1]}' for mark in marks) + '\n\n'
+                output += (
+                    f'*{name_of_day}:*\n\t├ '
+                    + '\n\t├ '.join(f'*{mark[0]}*: {mark[1]}' for mark in marks[:-1])
+                    + f'\n\t└ *{marks[-1][0]}*: {marks[-1][1]}'
+                    + '\n\n'
+                )
         else:
             output += '\t└ Оценки за этот период отсутствуют'
     else:
-        output = f'*Оценки за сегодняшний день ({response["date"]["begin_date"].strftime("%d.%m")}):*\n'
-
         today = get_weekday(datetime.now().isoweekday())
+        output = (
+            f'*Оценки за сегодняшний день ({today}, {response["date"]["begin_date"].strftime("%d.%m")}):*\n'
+        )
 
         if response['days']:
-            output += f'*{today}:*\n\t└ ' + '\n\t└ '.join(f'*{mark[0]}*: {mark[1]}' for mark in response['days'][today])
+            output += '\t├ ' + '\n\t├ '.join(f'*{mark[0]}*: {mark[1]}' for mark in response['days'][today][:-1])
+            output += f'\n\t└ *{response["days"][today][-1][0]}*: {response["days"][today][-1][1]}'
         else:
             output += '\t└ Оценки за сегодняшний день отсутствуют'
 
@@ -119,7 +131,8 @@ async def schedule(message: Message, user: UserClass):
         output = f'*Расписание на неделю ({response["date"]["begin_date"].strftime("%d.%m")} - {response["date"]["end_date"].strftime("%d.%m")}):*'
         for name_of_day, day in schedule.items():
             output += f'\n\n*{name_of_day}:*\n' + '\n'.join(
-                f'\t{"├└"[i == len(day)]} {lesson["subject_name"]} ({lesson["room_number"]})' for i, lesson in enumerate(day, start=1)
+                f'\t{"├└"[i == len(day)]} {lesson["subject_name"]} ({lesson["room_number"]})'
+                for i, lesson in enumerate(day, start=1)
             )
         output += f'\n{"-" * min(MAX_WIDTH_MESSAGE, len(output))}\nВсего уроков: {response["total_count"]}\n'
     else:
@@ -131,8 +144,12 @@ async def schedule(message: Message, user: UserClass):
 
         day = schedule[name_of_day]
 
-        output = f'*Расписание на {name_of_day} ({datetime.fromisoformat(day[0]["start_at"]).strftime("%d.%m")}):*\n' + '\n'.join(
-            f'\t{"├└"[i == len(day)]} {lesson["subject_name"]} ({lesson["room_number"]})' for i, lesson in enumerate(day, start=1)
+        output = (
+            f'*Расписание на {name_of_day} ({datetime.fromisoformat(day[0]["start_at"]).strftime("%d.%m")}):*\n'
+            + '\n'.join(
+                f'\t{"├└"[i == len(day)]} {lesson["subject_name"]} ({lesson["room_number"]})'
+                for i, lesson in enumerate(day, start=1)
+            )
         )
 
         output += f'\n{"-" * min(MAX_WIDTH_MESSAGE, len(output))}\nВсего уроков: {len(day)}\n'
@@ -154,54 +171,42 @@ async def homework(message: Message, user: UserClass):
 
     # Getting homework
     pre_hk = await db.get_homework(user.username)
-    if pre_hk and (datetime.now() - datetime.fromisoformat(pre_hk['date']['timestamp'])) < timedelta(hours=1):
-        hk = pre_hk
+    if pre_hk and (datetime.now() - pre_hk[1]) < timedelta(hours=1):
+        hk: Homework = pre_hk[0]
     else:
-        hk = await _exception_handler(user, message, parser.full_parse)
+        hk: Homework = await _exception_handler(user, message, parser.get_homework_from_website, student_id = user.student_id)
         if not hk:
             await msg.delete()
             return
 
         await db.save_homework(user.username, hk)
 
-    async def get_output_for_day(number_of_day: int) -> str:
-        day_name = get_weekday(number_of_day)
-        one_day = hk['days'].get(day_name)
-        begin_date, end_date, _ = map(
-            lambda x: datetime.fromisoformat(x).strftime('%d.%m'),
-            hk.get('date', {}).values(),
-        )
-
-        date = (datetime.strptime(begin_date, '%d.%m') + timedelta(days=number_of_day - 1)).strftime('%d.%m')
-
-        output = f'*Домашка на {day_name} ({date})*:\n'
-        for lesson in one_day:
-            if lesson['links']:
+    async def get_output_for_day(day: StudyDay) -> str:
+        output = f'*Домашка на {day.name} ({day.date.strftime("%d.%m")})*:\n'
+        for lesson in day:
+            if lesson.links:
                 if user.setting_hide_link:
-                    lesson['links'] = f'\t└ {"\n\t\t\t".join(f"[{(exam['title'])}]({exam['link']})" for exam in lesson["links"])}\n'
+                    lesson_links = (
+                        f'\t└ {"\n\t\t\t".join(f"[{exam.name}]({exam.link})" for exam in lesson.links)}\n'
+                    )
                 else:
-                    lesson['links'] = f'\t└ {"\n\t\t\t".join(f"{exam['link'].replace('_', r'\_')}" for exam in lesson["links"])}\n'
+                    lesson_links = (
+                        f'\t└ {"\n\t\t\t".join(f"{exam[1].replace('_', r'\_')}" for exam in lesson.links)}\n'
+                    )
             else:
-                lesson['links'] = ''
-            output += f'*• {lesson["name"]}:*\n\t{"├" if lesson["links"] else "└"} _{lesson["homework"].strip()}_\n{lesson["links"]}'
-        output += f'{r"-" * min(MAX_WIDTH_MESSAGE, len(max(output.split("\n"), key=len)))}\nВсего задано уроков: {len(one_day)}'
+                lesson_links = ''
+            output += f'*• {lesson.name}:*\n\t{"├" if lesson_links else "└"} _{lesson.homework}_\n{lesson_links}'
+        output += f'{r"-" * min(MAX_WIDTH_MESSAGE, len(max(output.split("\n"), key=len)))}\nВсего задано уроков: {len(day)}'
         return output
 
     await bot.delete_message(message.chat.id, msg.message_id)
     if user.setting_dw:  # if setting_dw is True, print for 5 days
         output = ''
-        for i in range(1, 6):
-            output += await get_output_for_day(i) + '\n\n\n'
+        for day in hk:
+            output += await get_output_for_day(day) + '\n\n\n'
     else:  # if False, for one day.
-        today_index = datetime.now().isoweekday()
-
-        # if today is Saturday or Sunday, print for next Monday
-        if today_index in [5, 6, 7]:
-            next_day_index = 1
-        else:
-            next_day_index = today_index + 1
-
-        output = await get_output_for_day(next_day_index)
+        today_index = datetime.now().isoweekday() if datetime.now().weekday() < 5 else 0
+        output = await get_output_for_day(hk[today_index])
 
     await message.answer(
         output,
@@ -264,7 +269,9 @@ async def change_delivery(message: Message, user: UserClass):
         user.setting_dw = True
     markup = make_setting_button(user)
     await user.save_settings(setting_dw=user.setting_dw)
-    logger.info(f'Изменены настройки выдачи ({message.from_user.username} - {user.setting_dw} ({user.data}))')
+    logger.info(
+        f'Изменены настройки выдачи ({message.from_user.username} - {user.setting_dw} ({user.data}))'
+    )
     await message.answer(
         'Настройки успешно изменены!',
         reply_markup=markup,
@@ -281,7 +288,9 @@ async def change_notification(message: Message, user: UserClass):
         user.setting_notification = True
     markup = make_setting_button(user)
     await user.save_settings(setting_notification=user.setting_notification)
-    logger.info(f'Изменены настройки уведомлений ({message.from_user.username} - {user.setting_notification} ({user.data}))')
+    logger.info(
+        f'Изменены настройки уведомлений ({message.from_user.username} - {user.setting_notification} ({user.data}))'
+    )
     await message.answer(
         'Настройки успешно изменены!',
         reply_markup=markup,
@@ -298,7 +307,9 @@ async def change_link(message: Message, user: UserClass):
         user.setting_hide_link = False
     markup = make_setting_button(user)
     await user.save_settings(setting_hide_link=user.setting_hide_link)
-    logger.info(f'Изменены настройки ссылок ({message.from_user.username} - {user.setting_hide_link} ({user.data}))')
+    logger.info(
+        f'Изменены настройки ссылок ({message.from_user.username} - {user.setting_hide_link} ({user.data}))'
+    )
     await message.answer(
         'Настройки успешно изменены!',
         reply_markup=markup,

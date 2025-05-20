@@ -8,6 +8,7 @@ dependencies = [
     "aiogram==3.20.0",
     "aiosqlite>=0.21.0",
     "colorama~=0.4.6",
+    "coverage==7.8.0",
     "environs==14.1.1",
     "loguru~=0.7.2",
     "pyside6==6.9.0",
@@ -15,12 +16,12 @@ dependencies = [
 ]
 
 [tool.ruff]
-line-length = 150
+line-length = 100
 indent-width = 4
 
 [tool.ruff.lint]
 select = ["D"]
-ignore = ["D101", "D102", "D103", "D104", "D107", "D100"]
+ignore = ["D101", "D102", "D103", "D104", "D105", "D107", "D100"]
 extend-select = ["D400"]
 pydocstyle.convention = "google"
 
