@@ -3,7 +3,6 @@ __all__ = (
     'make_setting_button',
     'token_button',
     'make_debug_button',
-    'social_networks_button',
     'username_button',
 )
 
@@ -23,7 +22,6 @@ def main_button(user):
             KeyboardButton(text='Домашнее задание 📓'),
         ],
         [
-            KeyboardButton(text='Соц. сети класса 💬'),
             KeyboardButton(text='Настройки ⚙️'),
         ],
     ]
@@ -73,23 +71,6 @@ def make_debug_button():
             [KeyboardButton(text='Выкл. дебаг')],
             [KeyboardButton(text='В главное меню')],
         ],
-    )
-
-
-def social_networks_button():
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text='Оф. группа',
-                    url='https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg',
-                ),
-                InlineKeyboardButton(
-                    text='Подполка',
-                    url='https://chat.whatsapp.com/GvkRfG5W5JoApXrnu4T9Yo',
-                ),
-            ]
-        ]
     )
 
 

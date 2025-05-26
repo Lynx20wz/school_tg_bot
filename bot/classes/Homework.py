@@ -6,7 +6,7 @@ from collections import namedtuple
 from pydantic import BaseModel, Field
 from requests import Response
 
-from bot.bin import get_weekday, check_response
+from bot.bin import get_weekday
 
 LinkInfo = namedtuple('LinkInfo', ['name', 'link'])
 
@@ -46,11 +46,9 @@ class Homework:
 
         # Data
         if days:
-            self.__days = days
+            self.__days: list[StudyDay] = days
         elif response:
-            self.__raw: dict = check_response(response)
-            self.__days: list[StudyDay] = self.__get_ready_homework()
-            del self.__raw
+            self.__days: list[StudyDay] = self.__get_ready_homework(response)
         else:
             raise ValueError('Either response or days must be provided.')
 
@@ -73,14 +71,14 @@ class Homework:
     def days(self) -> list[StudyDay]:
         return self.__days
 
-    def __get_ready_homework(self):
+    def __get_ready_homework(self, raw_response: dict) -> list[StudyDay]:
         """Collect ready homework data from raw response."""
         days = [
             StudyDay(name=day, date=datetime.now() + timedelta(days=i), lessons=[])
             for i, day in enumerate(get_weekday()[:5])
         ]
 
-        for lesson in self.__raw['payload']:
+        for lesson in raw_response['payload']:
             date = datetime.strptime(lesson['date'], '%Y-%m-%d')
             if add_materials := lesson.get('additional_materials'):
                 links = [
@@ -90,13 +88,14 @@ class Homework:
                 ]
             else:
                 links = []
-            days[date.weekday()].lessons.append(
-                Lesson(
-                    name=lesson.get('subject_name'),
-                    homework=lesson.get('homework').strip(),
-                    links=links,
+            if lesson['homework'].lower() not in [None, '.', 'не задано'] or links:
+                days[date.weekday()].lessons.append(
+                    Lesson(
+                        name=lesson.get('subject_name'),
+                        homework=lesson.get('homework').strip(),
+                        links=links,
+                    )
                 )
-            )
 
         return days
 

@@ -44,7 +44,7 @@ async def get_user(message):
 @debug_router.message(F.text == 'В главное меню')
 @UserClass.get_user()
 async def exit_debug_commands(message, user):
-    logger.info(f'Вышел из команд дебага ({message.from_user.username})')
+    logger.debug(f'Came out of the debug commands ({message.from_user.username})')
     await message.answer(
         'Главное меню',
         reply_markup=main_button(user),

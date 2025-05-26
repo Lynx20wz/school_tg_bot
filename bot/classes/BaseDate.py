@@ -80,7 +80,7 @@ class BaseDate:
                     res = await cursor.fetchone()
                     if res:
                         return dict(res)
-                logger.info(f'{user[0]} was added in the database')
+                logger.debug(f'{user[0]} was added in the database')
                 await db.execute(
                     """
                     INSERT INTO users (username, userid, debug, setting_dw, setting_notification, setting_hide_link) 

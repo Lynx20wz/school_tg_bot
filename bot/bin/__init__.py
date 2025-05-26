@@ -12,11 +12,9 @@ __all__ = (
     'make_setting_button',
     'token_button',
     'make_debug_button',
-    'social_networks_button',
     'username_button',
     # Functions
     'get_weekday',
-    'check_response',
     # Exceptions
     'ExpiredToken',
     'NoToken',
@@ -30,6 +28,15 @@ from environs import Env, EnvError
 from loguru import logger
 from until import *  # Exceptions and buttons
 
+
+# CONST
+DEBUG = True if '-debug' in argv else False
+BD_PATH = 'temp/DataBase.db'
+BD_BACKUP_PATH = 'temp/BackupDataBase.db'
+
+env = Env()
+env.read_env()
+
 log_format = (
     '{time:H:mm:ss} | "{function}" | {line} ({module}) | <level>{level}</level> | {message}'
 )
@@ -40,18 +47,10 @@ logger.add(
     format=log_format,
     backtrace=True,
     diagnose=True,
-    level='DEBUG',
+    level='DEBUG' if DEBUG else 'INFO',
     colorize=True,
 )
 logger.add(format=log_format, sink='temp/log.log', level='INFO', mode='w')
-
-# CONST
-BD_PATH = 'temp/DataBase.db'
-BD_BACKUP_PATH = 'temp/BackupDataBase.db'
-DEBUG = True if '-debug' in argv else False
-
-env = Env()
-env.read_env()
 
 try:
     if DEBUG:
@@ -76,28 +75,6 @@ def get_weekday(number: int = None) -> Union[str, list[str]]:
         7: 'Воскресенье',
     }
     if not number:
-        return [name_day for name_day in weekdays.values()]
+        return list(weekdays.values())
     else:
         return weekdays.get(number)
-
-
-def check_response(response) -> dict:
-    """Function, which check for token and status code in response.
-
-    Args:
-        response (Response): Response from server which need to check
-    Returns:
-        Server response as a dictionary and raise exceptions
-    Raises:
-        NoToken: when user doesn't have token
-        ExpiredToken: when token is expired
-        ServerError: when request failed for other reasons
-    """
-    if response.status_code == 401:
-        logger.warning(f'Срок действия токена истёк!: {response.status_code}\n{response.text}')
-        raise ExpiredToken()
-    elif response.status_code >= 400:
-        logger.warning(f'Произошла ошибка: {response.status_code}\n{response.text}')
-        raise ServerError()
-    else:
-        return response.json()

@@ -5,7 +5,8 @@ from typing import Union, Callable, Optional
 from aiogram.types import Message
 
 from bot.bin import username_button, logger
-from bot.classes.BaseDate import BaseDate
+from .BaseDate import BaseDate
+from .Parser import Parser
 
 db = BaseDate()
 
@@ -49,7 +50,9 @@ class UserClass:
             setting_hide_link,
             debug,
         )
-        self.token = token
+
+        self.parser = Parser(token, student_id)
+        self._token = token
         self.student_id = student_id
         self.homework_id = homework_id
 
@@ -104,9 +107,7 @@ class UserClass:
                         user = UserClass(message.from_user.username, message.from_user.id)
 
                 return await func(message=message, user=user, *args, **kwargs)
-
             return wrapped
-
         return wrapper
 
     async def save_settings(
@@ -132,7 +133,25 @@ class UserClass:
         self.debug = debug or self.debug
 
         asyncio.create_task(db.update_user(self))
-        logger.info(f'Новые настройки пользователя {self.username} сохранены!')
+        logger.debug(f'The new settings for user {self.username} have been saved!')
 
     def check_token(self) -> bool:
-        return self.token is not None and self.student_id is not None
+        return self._token is not None and self.student_id is not None
+
+    @property
+    def token(self):
+        return self._token
+
+    @token.setter
+    def token(self, value):
+        self._token = value
+        self.parser.token = value
+
+    @property
+    def student_id(self):
+        return self._student_id
+
+    @student_id.setter
+    def student_id(self, value):
+        self._student_id = value
+        self.parser.student_id = value

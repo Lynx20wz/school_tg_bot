@@ -4,7 +4,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
 from bot.bin import token_button, main_button
-from bot.bin.parser import get_student_id
 from bot.classes import UserClass, BaseDate
 
 db = BaseDate()
@@ -32,7 +31,7 @@ async def end_registration(message, user, state: FSMContext):
         await state.update_data(token=message.text)
         data = await state.get_data()
         user.token = data.get('token')
-        user.student_id = get_student_id(token=user.token)
+        user.student_id = user.parser.get_student_id()
         await db.update_user(user)
         await message.answer(
             f'{user.username}, ваш токен успешно зарегистрирован!',

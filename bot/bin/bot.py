@@ -12,14 +12,9 @@ from aiogram.types import (
 from bot.bin import (
     API_BOT,
     logger,
-    parser,
     main_button,
-    social_networks_button,
     make_setting_button,
     get_weekday,
-    ExpiredToken,
-    NoToken,
-    ServerError,
 )
 from bot.classes import BaseDate, UserClass, Homework
 from bot.classes.Homework import StudyDay
@@ -32,40 +27,20 @@ db = BaseDate()
 MAX_WIDTH_MESSAGE = 33
 
 
-async def _exception_handler(
-    user: UserClass, message: Message, function: callable, **kwargs
-):
-    """Handles exceptions that may occur during the execution of a function.
-
-    Args:
-        user (UserClass): A user for which the function is called
-        message (Message): A message for which the function is called
-        function (callable): The function to be called.
-        *args: Variable length argument list.
-        **kwargs: Arbitrary keyword arguments.
-
-    Returns:
-        Either notify the user that an exception has happened
-        or return the result of the function completion
-    """
+async def request_handler(func, message, *args, **kwargs) -> dict | None:
     try:
-        if not user.token:
-            raise NoToken()
-        if 'token' not in kwargs:
-            kwargs['token'] = user.token
-        result = function(**kwargs)
-    except (ExpiredToken, NoToken, ServerError) as e:
-        logger.warning(f'{function.__name__} | {user.username}: Произошла ошибка: {e}')
-        await message.answer(e.args[0])
+        return func(*args, **kwargs)
+    except Exception as e:
+        logger.error(e)
+        await message.answer(str(e))
         return None
-    return result
 
 
 # START!
 @dp.message(F.text, Command('start'))
 @UserClass.get_user()
 async def start(message: Message, user: UserClass):
-    logger.info(f'Бота запустили ({message.from_user.username})')
+    logger.info(f'The bot was launched by {message.from_user.username}')
     with open('bot/loging.png', 'rb') as file:
         await message.answer_photo(
             photo=BufferedInputFile(file.read(), filename='Логирование'),
@@ -78,8 +53,8 @@ async def start(message: Message, user: UserClass):
 @dp.message(F.text == 'Оценки 📝')
 @UserClass.get_user()
 async def marks(message: Message, user: UserClass):
-    logger.info(f'Вызваны оценки ({message.from_user.username})')
-    response = await _exception_handler(user, message, parser.get_marks, student_id = user.student_id)
+    logger.debug(f'Called marks ({message.from_user.username})')
+    response = await request_handler(user.parser.get_marks, message)
     if not response:
         return
 
@@ -100,12 +75,12 @@ async def marks(message: Message, user: UserClass):
             output += '\t└ Оценки за этот период отсутствуют'
     else:
         today = get_weekday(datetime.now().isoweekday())
-        output = (
-            f'*Оценки за сегодняшний день ({today}, {response["date"]["begin_date"].strftime("%d.%m")}):*\n'
-        )
+        output = f'*Оценки за сегодняшний день ({today}, {response["date"]["begin_date"].strftime("%d.%m")}):*\n'
 
         if response['days']:
-            output += '\t├ ' + '\n\t├ '.join(f'*{mark[0]}*: {mark[1]}' for mark in response['days'][today][:-1])
+            output += '\t├ ' + '\n\t├ '.join(
+                f'*{mark[0]}*: {mark[1]}' for mark in response['days'][today][:-1]
+            )
             output += f'\n\t└ *{response["days"][today][-1][0]}*: {response["days"][today][-1][1]}'
         else:
             output += '\t└ Оценки за сегодняшний день отсутствуют'
@@ -121,8 +96,8 @@ async def marks(message: Message, user: UserClass):
 @dp.message(F.text == 'Расписание 📅')
 @UserClass.get_user()
 async def schedule(message: Message, user: UserClass):
-    logger.info(f'Вызвано расписание ({message.from_user.username})')
-    response = await _exception_handler(user, message, parser.get_schedule)
+    logger.debug(f'Schedule called ({message.from_user.username})')
+    response = await request_handler(user.parser.get_schedule, message)
     if not response:
         return
     schedule = response.get('days')
@@ -165,7 +140,7 @@ async def homework(message: Message, user: UserClass):
         message (Message): Received message.
         user (UserClass): User object.
     """
-    logger.info(f'Вызвана домашка ({message.from_user.username})')
+    logger.debug(f'Called homework ({message.from_user.username})')
 
     msg = await message.answer('Ожидайте... ⌛')
 
@@ -174,7 +149,7 @@ async def homework(message: Message, user: UserClass):
     if pre_hk and (datetime.now() - pre_hk[1]) < timedelta(hours=1):
         hk: Homework = pre_hk[0]
     else:
-        hk: Homework = await _exception_handler(user, message, parser.get_homework_from_website, student_id = user.student_id)
+        hk: Homework = await request_handler(user.parser.get_homework, message)
         if not hk:
             await msg.delete()
             return
@@ -186,13 +161,9 @@ async def homework(message: Message, user: UserClass):
         for lesson in day:
             if lesson.links:
                 if user.setting_hide_link:
-                    lesson_links = (
-                        f'\t└ {"\n\t\t\t".join(f"[{exam.name}]({exam.link})" for exam in lesson.links)}\n'
-                    )
+                    lesson_links = f'\t└ {"\n\t\t\t".join(f"[{exam.name}]({exam.link})" for exam in lesson.links)}\n'
                 else:
-                    lesson_links = (
-                        f'\t└ {"\n\t\t\t".join(f"{exam[1].replace('_', r'\_')}" for exam in lesson.links)}\n'
-                    )
+                    lesson_links = f'\t└ {"\n\t\t\t".join(f"{exam[1].replace('_', r'\_')}" for exam in lesson.links)}\n'
             else:
                 lesson_links = ''
             output += f'*• {lesson.name}:*\n\t{"├" if lesson_links else "└"} _{lesson.homework}_\n{lesson_links}'
@@ -215,27 +186,11 @@ async def homework(message: Message, user: UserClass):
     )
 
 
-@dp.message(F.text == 'Соц. сети класса 💬')
-async def social_networks(message):
-    await message.answer(
-        text=r"""
-Конечно\! Держи:
-
-[Официальная группа в WhatsApp](https://chat.whatsapp.com/Dz9xYMsfWoy3E7smQHimDg) \(создатель @Lynx20wz\)
-[Подпольная группа в WhatsApp](https://chat.whatsapp.com/GvkRfG5W5JoApXrnu4T9Yo) \(создатель @Juggernaut\_45\)
-
-Если ссылки не работают обратиться к @Lynx20wz\} 
-""",
-        reply_markup=social_networks_button(),
-        parse_mode='MarkdownV2',
-    )
-
-
 # Settings
 @dp.message(F.text == 'Настройки ⚙️')
 @UserClass.get_user()
 async def settings(message: Message, user: UserClass):
-    logger.info(f'Вызваны настройки ({message.from_user.username})')
+    logger.debug(f'Вызваны настройки ({message.from_user.username})')
     markup = make_setting_button(user)
     await message.answer(
         text=r"""
@@ -269,9 +224,7 @@ async def change_delivery(message: Message, user: UserClass):
         user.setting_dw = True
     markup = make_setting_button(user)
     await user.save_settings(setting_dw=user.setting_dw)
-    logger.info(
-        f'Изменены настройки выдачи ({message.from_user.username} - {user.setting_dw} ({user.data}))'
-    )
+    logger.debug(f'Changed issue settings ({message.from_user.username} - {user.setting_dw})')
     await message.answer(
         'Настройки успешно изменены!',
         reply_markup=markup,
@@ -288,8 +241,8 @@ async def change_notification(message: Message, user: UserClass):
         user.setting_notification = True
     markup = make_setting_button(user)
     await user.save_settings(setting_notification=user.setting_notification)
-    logger.info(
-        f'Изменены настройки уведомлений ({message.from_user.username} - {user.setting_notification} ({user.data}))'
+    logger.debug(
+        f'Changed notification settings ({message.from_user.username} - {user.setting_notification})'
     )
     await message.answer(
         'Настройки успешно изменены!',
@@ -307,9 +260,7 @@ async def change_link(message: Message, user: UserClass):
         user.setting_hide_link = False
     markup = make_setting_button(user)
     await user.save_settings(setting_hide_link=user.setting_hide_link)
-    logger.info(
-        f'Изменены настройки ссылок ({message.from_user.username} - {user.setting_hide_link} ({user.data}))'
-    )
+    logger.debug(f'Changed link settings ({message.from_user.username} - {user.setting_hide_link})')
     await message.answer(
         'Настройки успешно изменены!',
         reply_markup=markup,
@@ -320,7 +271,7 @@ async def change_link(message: Message, user: UserClass):
 @dp.message(F.text == 'Назад')
 @UserClass.get_user()
 async def exit_settings(message: Message, user: UserClass):
-    logger.info(f'Вышел из настроек ({message.from_user.username})')
+    logger.debug(f'Out of the settings ({message.from_user.username})')
     await user.save_settings(
         setting_dw=user.setting_dw,
         setting_notification=user.setting_notification,
@@ -343,6 +294,7 @@ async def delete_user(message: Message, user: UserClass):
         message (Message): Received message
         user (UserClass): User object
     """
+    logger.debug(f'The account has been deleted ({message.from_user.username})')
     await db.delete_user(user.username)
     await message.answer('Аккаунт успешно удален!')
 
@@ -351,7 +303,7 @@ async def main():
     Handlers(dp).register_all()
     await bot.delete_webhook(drop_pending_updates=True)
     await db.restart_bot(False if '-back' in sys.argv else True)
-    logger.debug('Бот рестарт!')
+    logger.info('Bot restart!')
     try:
         await dp.start_polling(bot)
     finally:

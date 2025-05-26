@@ -3,7 +3,6 @@ __all__ = (
     'make_setting_button',
     'token_button',
     'make_debug_button',
-    'social_networks_button',
     'username_button',
     # Exceptions
     'ExpiredToken',
