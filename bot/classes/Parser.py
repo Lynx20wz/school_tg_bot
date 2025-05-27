@@ -6,7 +6,7 @@ from requests import HTTPError, get, post
 from bot.bin import logger, get_weekday
 
 from bot.classes import Homework
-from until import NoToken, ExpiredToken, ServerError
+from bot.until import NoToken, ExpiredToken, ServerError
 
 
 class Parser:

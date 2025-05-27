@@ -1,4 +1,9 @@
-__all__ = ('BaseDate', 'UserClass', 'Homework', 'Parser')
+__all__ = (
+    'BaseDate',
+    'UserClass',
+    'Homework',
+    'Parser',
+)
 
 from .BaseDate import BaseDate
 from .Homework import Homework

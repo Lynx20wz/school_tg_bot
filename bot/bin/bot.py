@@ -27,7 +27,7 @@ db = BaseDate()
 MAX_WIDTH_MESSAGE = 33
 
 
-async def request_handler(func, message, *args, **kwargs) -> dict | None:
+async def request_handler(func: callable, message: Message, *args, **kwargs) -> dict | None:
     try:
         return func(*args, **kwargs)
     except Exception as e:

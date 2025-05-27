@@ -1,237 +1,323 @@
+The documentation for this project is available in a few languages:
+
+- [English](#documentation-for-school_tg_bot-)
+- [Русский](#документация-для-school_tg_bot-)
+
 <details>
-<summary>RU 🇷🇺</summary>
-
-# Документация для school_tg_bot 🚀
-
-## Описание проекта  
-  
-Этот проект представляет собой Telegram-бота, созданного для упрощения взаимодействия учеников с информацией о  
-расписании и домашних заданиях 📚. Бот предоставляет пользователям возможность быстро и удобно получать актуальную  
-информацию о занятиях, домашних заданиях и оценках учеников в школе.  
-  
-Проект нацелен на оптимизацию учебного процесса, позволяя учащимся быть в курсе своих обязанностей и обеспечивая легкий  
-доступ к необходимой информации (в отличие от школьного портала 😁).  
-  
-### Основные функции:  
-  
-1. **Получение расписания**:  
-   - Пользователи могут запрашивать расписание на текущий день или на неделю 📆.  
-
-2. **Домашнее задание**:  
-   - Бот позволяет пользователям видеть свои домашние задания на текущий день или на всю неделю в зависимости от  
-      настроек 🛠️.  
-   - Домашние задания загружаются с сайта школы, что обеспечивает актуальность данных 💾.  
-
-3. **Настройки пользователя**:  
-   - Пользователи могут настраивать предпочтения получения информации о домашних заданиях (на день или на неделю) и  
-      уведомлениях (включенные или выключенные).  
-   - Все настройки удобно сохраняются и могут быть изменены в любое время ⏳.  
-
-4. **Логирование**:  
-   - Все действия пользователей и ошибки логируются с помощью библиотеки `loguru`, что позволяет отслеживать работу  
-      бота и быстро находить возможные проблемы 🔍.  
-
-### Технические детали:  
-
-- #### **Используемые библиотеки**:  
-- [![  
-  `Aiogram`](https://img.shields.io/badge/aiogram-3.14.0-blue?style=flat-square)](https://pypi.org/project/aiogram/) -  
-  библиотека для асинхронной работы с API Telegram 📞.  
-- [![  
-  `Aiosqlite`](https://img.shields.io/badge/aiosqlite-0.20.0-green?style=flat-square)](https://pypi.org/project/aiosqlite/) -  
-  для асинхронной работы с базами данных SQLite 🗄️.  
-- [![  
-  `Loguru`](https://img.shields.io/badge/loguru-0.7.3-red?style=flat-square)](https://pypi.org/project/loguru/) -  
-  для логирования 🔍.  
-- [![  
-  `Requests`](https://img.shields.io/badge/requests-2.32.2-pink?style=flat-square)](https://pypi.org/project/requests/) -  
-  для выполнения HTTP-запросов к школьному порталу для получения расписаний и  
-  домашних заданий 🚀.  
-- ~~[![  
-  `Selenium`](https://img.shields.io/badge/selenium-4.29.0-orange?style=flat-square)](https://pypi.org/project/selenium/) -  
-  для парсинга нового токена авторизации 🔑. (не используется)~~
-  
-### TODO-лист:
-  
-#### Основная работа 🛠️:
-  
-- [x] ([6d42](https://github.com/Lynx20wz/school_tg_bot/commit/6d4270b)) Авторизация пользователей  
-- [x] ([e0ae](https://github.com/Lynx20wz/school_tg_bot/commit/e0aecf3)) Реализовать систему кэша (уже с помощью **sqlite!**)  
-- [x] ([4c95](https://github.com/Lynx20wz/school_tg_bot/commit/4c95aa7b])) Реализовать систему предупреждения об отсутствии токена для домашнего задания, оценок и расписания  
-- [ ] Чек-лист сборки портфеля 📝✅  
-- [ ] Уведомления о полученных оценках 🔔  
-- [ ] Выложить код на автономный сервер  
-- [ ] Уведомления о новом дз/оценках сразу после соответствующего урока  
-- [ ] Система API "моя школа" на основе ООП  
-- [ ] Поддержка других школьных дневников  
-- [ ] Реализовать логирование на уровне middleware  
-  
-#### ГДЗ 🔢✅:
-  
-- [ ] Автоматическая отправка ответов на цдз  
-- [ ] Написать свою систему (мечта)  
-- [ ] Автоматическое решение ЦДЗ  
-  
-#### Настройки ⚙️:
-
-- [x] ([5f43](https://github.com/Lynx20wz/school_tg_bot/commit/5f4301fd)) Настройка дз день/неделя 🛠️  
-- [x] ([5f43](https://github.com/Lynx20wz/school_tg_bot/commit/5f4301fd)) Настройка уведомлений 🔔  
-  
----
-### **Структура кода**:  
-  
-#### bin:  
-  
-> - `main.py` - Основная логика взаимодействия с пользователем реализована в файле  
-> - `parser_school.py` - Функции для парсинга данных с сайта школы сгруппированы в файле  
-> - ~~`get_token.py` - Для получения нового токена используется файл~~ (_сейчас не используется_)  
-> - `KeyBoards.py` - Файл с функциями для создания клавиатур **aiogram**  
-> - `Start tg bot.cmd` - Быстрый запуска бота в терминале.  
-  
-#### classes:  
-  
-> - `UserClass.py` - Класс для хранения информации о пользователе  
-> - `BaseDate.py` - Класс для работы с базой данных  
-  
-#### handlers:  
-  
-> - `registration.py` - Получение токена  
-> - `debug.py` - Функции для дебага  
-  
-### Если вы хотите внести свой вклад в проект, вы можете сделать это следующим образом:  
-  
-1. Создайте форк репозитория  
-2. Внесите свои изменения  
-3. Создайте Pull Request  
-  
----  
-  
-### Лицензия:  
-  
-Этот проект лицензирован под лицензией MIT. Подробности можно найти в файле [LICENSE](LICENSE).  
-  
----  
-"Спасибо за внимание!" - [Lynx20wz](https://github.com/Lynx20wz)
-
-</details>
-<details>
-<summary>EN 🇺🇸</summary>
+<summary>EN</summary>
 
 # Documentation for school_tg_bot 🚀
 
-## Project Description 
- 
-This project is a Telegram bot created to simplify the interaction of students with information about
-schedules and homework 📚. The bot provides users with the ability to quickly and conveniently receive up-to-date
-information about classes, homework, and grades of students at school. 
- 
-The project aims to optimize the learning process by allowing students to keep abreast of their responsibilities and providing easy
-access to the necessary information (unlike the school portal 😁). 
- 
-### Main Functions:
+## Project Overview
 
-1. **Getting a schedule**:
-    - Users can request a schedule for the current day or for the week 📆.
+`school_tg_bot` is a Telegram bot designed to streamline students’ access to information about
+schedules, homework, and grades 📚. The bot enables users to quickly retrieve up-to-date data on
+classes, assignments, and academic performance, enhancing the learning experience.
 
-2. **Homework**:
-    - The bot allows users to see their homework for the current day or for the whole week,
-      depending on
-      the settings 🛠️.
-    - Homework assignments are downloaded from the school's website, which ensures that the data is
-      up-to-date 💾.
+The project aims to optimize the educational process, keeping students informed of their
+responsibilities and providing easy access to information, unlike the school portal 😊.
 
-3. **User Settings**:
-   - Users can customize preferences for receiving homework information (daily or weekly) and notifications (on or off).
-      notifications (on or off).
-   - All settings are conveniently saved and can be changed at any time ⏳.
+### Key Features
 
-4. **Logging**:  
-   - All user actions and errors are logged using the `loguru` library, which allows you to track the work of the 
-      bot and quickly find possible problems 🔍.
+1. **Homework**:
+    - View homework for the current day or the entire week based on user settings 🛠️.
+    - Homework is fetched from the school website, ensuring data accuracy 💾.
 
-### Technical details:
+2. **Schedule**:
+    - Request schedules for the current day or the week 📆.
 
-- #### **Libraries used**: 
-- [![  
-  `Aiogram`](https://img.shields.io/badge/aiogram-3.14.0-blue?style=flat-square)](https://pypi.org/project/aiogram/) -  
-  library for asynchronous work with Telegram API 📞.  
-- [![  
-  `Aiosqlite`](https://img.shields.io/badge/aiosqlite-0.20.0-green?style=flat-square)](https://pypi.org/project/aiosqlite/) -  
-  for asynchronous work with SQLite databases 🗄️.  
-- [![  
-  `Loguru`](https://img.shields.io/badge/loguru-0.7.3-red?style=flat-square)](https://pypi.org/project/loguru/) -  
-  for logging 🔍.  
-- [![  
-  `Requests`](https://img.shields.io/badge/requests-2.32.3-pink?style=flat-square)](https://pypi.org/project/requests/) -  
-  to perform HTTP requests to the school portal to retrieve schedules and
-  homework 🚀.  
-- ~~[![  
-  `Selenium`](https://img.shields.io/badge/selenium-4.29.0-orange?style=flat-square)](https://pypi.org/project/selenium/) -  
-  to parsing a new authorization token 🔑. (not used)~~
-  
-### TODO list:
-  
-#### Main work 🛠️:
+3. **Grades**:
+    - Check grades for the current day or week based on user preferences.
 
-- [x] ([6d42](https://github.com/Lynx20wz/school_tg_bot/commit/6d4270b)) User authorization
-- [x] ([e0ae](https://github.com/Lynx20wz/school_tg_bot/commit/e0aecf3)) Implement a cache system (already using **sqlite!**)
-- [x] ([4c95](https://github.com/Lynx20wz/school_tg_bot/commit/4c95aa7b])) Implement a token warning system for homework, grades, and schedules
-- [ ] Portfolio assembly checklist 📝✅
-- [ ] Notifications of grades received 🔔
-- [ ] Upload code to offline server
-- [ ] Notifications about new assignments/assessments immediately after the corresponding lesson
-- [ ] OOP-based "my school" API system
-- [ ] Support for other school diaries
-- [ ] Implement middleware level logging
+4. **User Settings**:
+    - Customize homework display (daily or weekly) and notification preferences (enabled/disabled).
+    - Settings are saved and modified at any time ⏳.
 
+5. **Logging**:
+    - All user actions and errors are logged using the `loguru` library, facilitating monitoring and
+      debugging 🗿.
 
-#### GDS 🔢✅:
+### Technical Details
 
-- [ ] Automatically send answers to gdz
-- [ ] Write your own system (dream)
-- [ ] Automatic solution of digital homework 
+#### Installation
 
-#### Settings ⚙️:
+1. Clone the repository: `git clone https://github.com/Lynx20wz/school_tg_bot`.
+2. Install dependencies: `pip install -r requirements.txt`.
+3. Start the bot: `python .` or `Start_tg_bot.cmd`.
 
-- [x] ([5f43](https://github.com/Lynx20wz/school_tg_bot/commit/5f4301fd)) Customize dz day/week 🛠️
-- [x] ([5f43](https://github.com/Lynx20wz/school_tg_bot/commit/5f4301fd)) Customizing notifications 🔔
+#### Allowable start arguments
 
----
-### **Code Structure**:
+- `-back` - the database backup will not be loaded when the bot is started.
+- `-debug` - the bot will be launched in debug mode (additional logs).
 
-#### bin:
+#### Libraries Used
 
-> - `main.py` - The basic logic of user interaction is implemented in the file
-> - `parser_school.py` - Functions for parsing data from the school website are grouped in the file
-> - ~~`get_token.py` - The file~~ (_not used now_) is used to get a new token.
-> - `KeyBoards.py` - A file with functions for creating **aiogram** keyboards
-> - `Start tg bot.cmd` - Quick start bot in terminal.
+- [![
+  `Aiogram`](https://img.shields.io/badge/aiogram-3.14-blue?style=flat-square)](https://github.com/aiogram/aiogram) —
+  Asynchronous library for the Telegram API 📋.
+- [![
+  `Aiosqlite`](https://img.shields.io/pypi/v/aiosqlite?color=aiosqlite)](https://github.com/omnilib/aiosqlite) —
+  Asynchronous SQLite operations �️.
+- [![`Loguru`](https://img.shields.io/pypi/v/loguru)](https://github.com/Delgan/loguru) — Logging of
+  actions and errors 📜.
+- [![`Requests`](https://img.shields.io/pypi/v/requests)](https://github.com/psf/requests) — HTTP
+  requests to the school portal for schedules and assignments 🚀.
+-
+~~[![`Selenium`](https://img.shields.io/pypi/v/selenium)](https://github.com/SeleniumHQ/selenium) —
+Token parsing (deprecated).~~
 
-  
-#### classes:  
-  
-> - `UserClass.py` - A class for storing user information
-> - `BaseDate.py` - Class for working with database
-  
-#### handlers:  
-  
-> - `registration.py` - Getting token
-> - `debug.py` - Functions for debugging
+<details>
+<summary>Project structure</summary>
 
----  
+##### root
 
-### If you would like to contribute to the project, you may do so as follows:
+- `__main__.py` — Program entry point.
+- `start_tg_bot.cmd` — Script for launching the bot in the terminal.
+- `LICENSE` — Project license.
+- `README.md` — Project description.
+- `pyproject.toml` — Project configuration.
+- `requirements.txt` — Bot dependencies.
 
-1. Create a fork of the repository
-2. Make your changes
-3. Create a Pull Request
-  
----  
-  
-### License:  
-  
-This project is licensed under the MIT license. Details can be found in the [LICENSE](LICENSE) file.
+##### bot
+
+> bin
+> - `bot.py` — Core logic for Telegram API interaction.
+
+> classes
+> - `BaseData.py` — Class for SQLite database operations.
+> - `UserClass.py` — Class for storing user data.
+> - `Homework.py` — Class for handling homework.
+> - `Parser.py` — Class for parsing "My School" data.
+
+> filters
+> - `is_admin.py` — Administrator filter.
+
+> handlers
+> - `registration.py` — Authorization and token handling.
+> - `debug.py` — Debugging functions.
+> - `unknown.py` — Handling unknown messages.
+
+> utils
+> - ~~`get_token.py` — Token retrieval (deprecated)~~.
+> - `Keyboards.py` — Functions for creating `aiogram` keyboards.
+> - `Exceptions.py` — Custom exception classes.
+
+</details>
 
 ---
-"Thank you for your attention!" - [Lynx20wz](https://github.com/Lynx20wz)
+
+### TODO List
+
+#### Core Tasks 🛠️
+
+- [x] ([6d42](https://github.com/Lynx20wz/school_tg_bot/commit/6d4270b)) User authorization.
+- [x] ([e0ae](https://github.com/Lynx20wz/school_tg_bot/commit/e0aecf3)) Database (SQLite).
+- [x] ([4c95](https://github.com/Lynx20wz/school_tg_bot/commit/4c95aa7b)) Token absence
+  notifications for homework, grades, and schedules.
+- [ ] "My School" API system based on OOP:
+    - [x] ([29e6](https://github.com/Lynx20wz/school_tg_bot/commit/29e6e3fa)) `Homework` class.
+    - [x] ([003e](https://github.com/Lynx20wz/school_tg_bot/commit/003e9a54)) `Parser` class.
+    - [ ] `Schedule` class.
+    - [ ] `Grades` class.
+    - [ ] "My School" API class.
+- [ ] School supplies checklist 📝✅.
+- [ ] Grade notifications 🔔.
+- [ ] Deployment to a standalone server.
+- [ ] Notifications for new homework/grades after lessons.
+- [ ] Support for other school diaries.
+- [ ] Middleware-level logging.
+- [ ] Caching with **Redis**.
+
+#### Assignment Solutions 🔢✅
+
+- [ ] Automatic submission of digital assignment answers.
+- [ ] Custom solution system (a dream).
+- [ ] Automatic solving of digital assignments.
+
+#### Settings ⚙️
+
+- [x] ([5f43](https://github.com/Lynx20wz/school_tg_bot/commit/5f4301fd)) Homework display
+  settings (daily/weekly) 🛠️.
+- [x] ([5f43](https://github.com/Lynx20wz/school_tg_bot/commit/5f4301fd)) Notification management
+  🔔.
+
+---
+
+### Contributing
+
+1. Fork the repository.
+2. Make your changes.
+3. Create a Pull Request.
+
+---
+
+### License
+
+The project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+"Thank you for your attention!" — [Lynx20wz](https://github.com/Lynx20wz)
+</details>
+
+<details>
+<summary>RU</summary>
+
+# Документация для school_tg_bot 🚀
+
+## Описание проекта
+
+`school_tg_bot` — это Telegram-бот, созданный для упрощения доступа школьников к информации о
+расписании, домашних заданиях и оценках 📚. Бот позволяет быстро получать актуальные данные о
+занятиях, заданиях и успеваемости, делая учебный процесс удобнее.
+
+Проект направлен на оптимизацию учебного процесса, помогая учащимся быть в курсе своих обязанностей
+и предоставляя простой доступ к информации, в отличие от школьного портала 😊.
+
+### Основные функции
+
+1. **Домашние задания**:
+    - Просмотр домашних заданий на текущий день или на неделю в зависимости от пользовательских
+      настроек 🛠️.
+    - Данные загружаются с сайта школы, что гарантирует их актуальность 💾.
+
+2. **Расписание**:
+    - Запрос расписания на текущий день или на неделю 📆.
+
+3. **Оценки**:
+    - Просмотр оценок за текущий день или неделю в зависимости от настроек.
+
+4. **Настройки пользователя**:
+    - Настройка отображения домашних заданий (на день или неделю) и уведомлений (
+      включены/выключены).
+    - Все настройки сохраняются и могут быть изменены в любой момент ⏳.
+
+5. **Логирование**:
+    - Все действия пользователей и ошибки записываются с помощью библиотеки `loguru`, что упрощает
+      мониторинг и отладку бота 🔍.
+
+### Технические детали
+
+#### Установка
+
+1. Клонируйте репозиторий: `git clone https://github.com/Lynx20wz/school_tg_bot`.
+2. Установите зависимости: `pip install -r requirements.txt`.
+3. Запустите бота: `python .` или `Start_tg_bot.cmd`.
+
+#### Допустимые аргументы запуска
+
+- `-back` - бэкап базы данных не будет загружаться при запуске бота.
+- `-debug` - бот будет запускаться в режиме отладки (дополнительные логи).
+
+#### Используемые библиотеки
+
+- [![
+  `Aiogram`](https://img.shields.io/badge/aiogram-3.14.0-blue?style=flat-square)](https://pypi.org/project/aiogram/) —
+  асинхронная библиотека для работы с Telegram API 📞.
+- [![
+  `Aiosqlite`](https://img.shields.io/badge/aiosqlite-0.20.0-green?style=flat-square)](https://pypi.org/project/aiosqlite/) —
+  асинхронная работа с базами данных SQLite 🗄️.
+- [![
+  `Loguru`](https://img.shields.io/badge/loguru-0.7.3-red?style=flat-square)](https://pypi.org/project/loguru/) —
+  логирование действий и ошибок 🔍.
+- [![
+  `Requests`](https://img.shields.io/badge/requests-2.32.2-pink?style=flat-square)](https://pypi.org/project/requests/) —
+  HTTP-запросы к школьному порталу для получения расписаний и заданий 🚀.
+- ~~[![
+  `Selenium`](https://img.shields.io/badge/selenium-4.29.0-orange?style=flat-square)](https://pypi.org/project/selenium/) —
+  парсинг токенов авторизации 🔑 (устарело).~~
+
+<details>
+<summary>Структура проекта</summary>
+
+##### Корень
+
+- `__main__.py` — точка входа в программу.
+- `start_tg_bot.cmd` — скрипт для быстрого запуска бота в терминале.
+- `LICENSE` — лицензия проекта.
+- `README.md` — описание проекта.
+- `pyproject.toml` — конфигурация проекта.
+- `requirements.txt` — зависимости бота.
+
+##### bot
+
+> bin
+> - `bot.py` — основная логика взаимодействия с Telegram API.
+
+> classes
+> - `BaseData.py` — класс для работы с базой данных (SQLite).
+> - `UserClass.py` — класс для хранения данных пользователя.
+> - `Homework.py` — класс для обработки домашних заданий.
+> - `Parser.py` — класс для парсинга данных "Моя школа".
+
+> filters
+> - `is_admin.py` — фильтр для администраторов.
+
+> handlers
+> - `registration.py` — обработка авторизации и получения токена.
+> - `debug.py` — функции для отладки.
+> - `unknown.py` — обработка неизвестных сообщений.
+
+> utils
+> - ~~`get_token.py` — получение токена (устарело)~~.
+> - `Keyboards.py` — функции для создания клавиатур `aiogram`.
+> - `Exceptions.py` — пользовательские исключения.
+
+</details>
+
+---
+
+### TODO-лист
+
+#### Основные задачи 🛠️
+
+- [x] ([6d42](https://github.com/Lynx20wz/school_tg_bot/commit/6d4270b)) Авторизация пользователей.
+- [x] ([e0ae](https://github.com/Lynx20wz/school_tg_bot/commit/e0aecf3)) База данных (SQLite).
+- [x] ([4c95](https://github.com/Lynx20wz/school_tg_bot/commit/4c95aa7b)) Уведомления об отсутствии
+  токена для заданий, оценок и расписания.
+- [ ] Система API "Моя школа" на основе ООП:
+    - [x] ([29e6](https://github.com/Lynx20wz/school_tg_bot/commit/29e6e3fa)) Класс `Homework`.
+    - [x] ([003e](https://github.com/Lynx20wz/school_tg_bot/commit/003e9a54)) Класс `Parser`.
+    - [ ] Класс `Schedule`.
+    - [ ] Класс `Grades`.
+    - [ ] Класс API "Моя школа".
+- [ ] Чек-лист подготовки школьных принадлежностей 📝✅.
+- [ ] Уведомления о новых оценках 🔔.
+- [ ] Разворачивание на автономном сервере.
+- [ ] Уведомления о новых заданиях и оценках после уроков.
+- [ ] Поддержка других школьных дневников.
+- [ ] Логирование на уровне middleware.
+- [ ] Кеширование с использованием **Redis**.
+
+#### Решения заданий 🔢✅
+
+- [ ] Автоматическая отправка ответов на цифровые задания.
+- [ ] Собственная система решений (мечта).
+- [ ] Автоматическое решение цифровых заданий.
+
+#### Настройки ⚙️
+
+- [x] ([5f43](https://github.com/Lynx20wz/school_tg_bot/commit/5f4301fd)) Выбор отображения
+  заданий (день/неделя) 🛠️.
+- [x] ([5f43](https://github.com/Lynx20wz/school_tg_bot/commit/5f4301fd)) Управление уведомлениями
+  🔔.
+
+---
+
+### Как внести вклад
+
+1. Сделайте форк репозитория.
+2. Внесите изменения.
+3. Создайте Pull Request.
+
+---
+
+### Лицензия
+
+Проект распространяется под лицензией MIT. Подробности — в файле [LICENSE](LICENSE).
+
+---
+
+"Спасибо за внимание!" — [Lynx20wz](https://github.com/Lynx20wz)
+
 </details>

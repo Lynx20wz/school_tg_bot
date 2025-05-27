@@ -42,7 +42,7 @@ class Homework:
         self.id_: int = id_
         self._begin: datetime = begin
         self._end: datetime = end
-        self.date: tuple[datetime, datetime] = (begin, end)
+        self.date: tuple[datetime, datetime] = begin, end
 
         # Data
         if days:
@@ -55,7 +55,7 @@ class Homework:
     def __iter__(self) -> Iterator[StudyDay]:
         return iter(self.__days)
 
-    def __getitem__(self, item) -> StudyDay:
+    def __getitem__(self, item: int) -> StudyDay:
         return self.__days[item]
 
     # Properties

@@ -9,7 +9,7 @@ dependencies = [
     "aiosqlite>=0.21.0",
     "colorama~=0.4.6",
     "coverage==7.8.0",
-    "environs==14.1.1",
+    "environs==14.2.0",
     "loguru~=0.7.2",
     "pyside6==6.9.0",
     "requests~=2.32.3",
