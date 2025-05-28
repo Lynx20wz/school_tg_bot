@@ -1,11 +1,11 @@
 __all__ = (
-    'BaseDate',
+    'DataBase',
     'UserClass',
     'Homework',
     'Parser',
 )
 
-from .BaseDate import BaseDate
+from .DataBase import DataBase
 from .Homework import Homework
 from .UserClass import UserClass
 from .Parser import Parser

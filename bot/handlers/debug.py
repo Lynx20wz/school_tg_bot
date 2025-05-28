@@ -1,26 +1,25 @@
 import json
 
 from aiogram import Router, F
-from aiogram.filters import Command
+from aiogram.filters import Command, or_f
 from loguru import logger
 
 from bot.bin import main_button, make_debug_button
-from bot.classes import UserClass, BaseDate
+from bot.classes import DataBase
 
-db = BaseDate()
+db = DataBase()
 debug_router = Router()
 
 
-@debug_router.message(F.text.lower() == 'debug')
-@UserClass.get_user()
+@debug_router.message(or_f(F.text.lower() == 'debug', Command('debug')))
 async def developer(message, user):
     user.debug = True
-    await user.save_settings(debug=user.debug, save_db=True)
+    await user.save_settings(debug=user.debug)
     logger.warning(f'{user.username} получил роль разработчика!')
     await message.answer(f'Удачной разработки, {user.username}! 😉', reply_markup=main_button(user))
 
 
-@debug_router.message(F.text == 'Команды дебага')
+@debug_router.message(or_f(F.text == 'Команды дебага', Command('commands')))
 async def command_debug(message):
     await message.answer(
         f"""Добро пожаловать разработчик, тут все нужные для тебя команды!
@@ -41,10 +40,8 @@ async def get_user(message):
     await message.answer(json.dumps(user_data, indent=4, ensure_ascii=False))
 
 
-@debug_router.message(F.text == 'В главное меню')
-@UserClass.get_user()
+@debug_router.message(or_f(F.text == 'В главное меню', Command('exit')))
 async def exit_debug_commands(message, user):
-    logger.debug(f'Came out of the debug commands ({message.from_user.username})')
     await message.answer(
         'Главное меню',
         reply_markup=main_button(user),
@@ -69,7 +66,6 @@ async def sql_debug(message, command):
 async def sql_request(message, command):
     command_args = command.args
     command = command.command
-    # logger.debug(f'{command=} - {command_args=}')
 
     if command == 'users':
         user_data = await db()
@@ -90,10 +86,8 @@ async def logfile(message):
         await message.answer('\n'.join(logfile.readlines()))
 
 
-@debug_router.message(F.text == 'Выкл. дебаг')
-@UserClass.get_user()
+@debug_router.message(or_f(F.text == 'Выкл. дебаг', Command('off')))
 async def remove_debug(message, user):
     user.debug = False
-    user.save_settings(debug=user.debug, save_db=True, database=db)
-    logger.debug(f'{user.username} отключил роль разработчика.')
+    user.save_settings(debug=user.debug)
     await message.answer(f'Выключаю дебаг...', reply_markup=main_button(user))

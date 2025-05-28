@@ -112,7 +112,8 @@ Token parsing (deprecated).~~
 
 - [x] ([6d42](https://github.com/Lynx20wz/school_tg_bot/commit/6d4270b)) User authorization.
 - [x] ([e0ae](https://github.com/Lynx20wz/school_tg_bot/commit/e0aecf3)) Database (SQLite).
-- [x] ([4c95](https://github.com/Lynx20wz/school_tg_bot/commit/4c95aa7b)) Token absence
+- [x] ([4c95](https://github.com/Lynx20wz/school_tg_bot/commit/4c95aa7b)) Token absence.
+- [x] Middleware-level logging.
   notifications for homework, grades, and schedules.
 - [ ] "My School" API system based on OOP:
     - [x] ([29e6](https://github.com/Lynx20wz/school_tg_bot/commit/29e6e3fa)) `Homework` class.
@@ -125,7 +126,6 @@ Token parsing (deprecated).~~
 - [ ] Deployment to a standalone server.
 - [ ] Notifications for new homework/grades after lessons.
 - [ ] Support for other school diaries.
-- [ ] Middleware-level logging.
 - [ ] Caching with **Redis**.
 
 #### Assignment Solutions 🔢✅

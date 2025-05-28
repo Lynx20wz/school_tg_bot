@@ -1,14 +1,14 @@
 import asyncio
-from functools import wraps
-from typing import Union, Callable, Optional
+from typing import Union, Optional
 
 from aiogram.types import Message
 
 from bot.bin import username_button, logger
-from .BaseDate import BaseDate
+from .DataBase import DataBase
 from .Parser import Parser
 
-db = BaseDate()
+db = DataBase()
+
 
 class UserClass:
     def __init__(
@@ -70,45 +70,32 @@ class UserClass:
         )
 
     @staticmethod
-    def get_user():
-        """The function returns the user from the database.
-
-        Returns:
-            Function-wrapper for getting user
-        """
-
-        def wrapper(func: Callable):
-            @wraps(func)
-            async def wrapped(message: Union[Message, UserClass], *args, **kwargs):
-                if isinstance(message, UserClass):
-                    user = message
-                else:
-                    user_db = await db(message.from_user.username)
-                    if user_db is not None:
-                        try:
-                            user = UserClass(
-                                message.from_user.username,
-                                message.from_user.id,
-                                user_db.get('debug', False),
-                                user_db.get('setting_dw', False),
-                                user_db.get('setting_notification', True),
-                                user_db.get('setting_hide_link', True),
-                                user_db.get('token'),
-                                user_db.get('student_id'),
-                                user_db.get('homework'),
-                            )
-                        except AttributeError:
-                            await message.answer(
-                                'У вас отсутствует имя пользователя! Пожалуйста добавьте его в настройках аккаунта.',
-                                reply_markup=username_button(),
-                            )
-                            return None
-                    else:
-                        user = UserClass(message.from_user.username, message.from_user.id)
-
-                return await func(message=message, user=user, *args, **kwargs)
-            return wrapped
-        return wrapper
+    async def get_user(message: Union[Message, 'UserClass']):
+        if isinstance(message, UserClass):
+            return message
+        else:
+            user_db = await db(message.from_user.username)
+            if user_db is not None:
+                try:
+                    return UserClass(
+                        message.from_user.username,
+                        message.from_user.id,
+                        user_db.get('debug', False),
+                        user_db.get('setting_dw', False),
+                        user_db.get('setting_notification', True),
+                        user_db.get('setting_hide_link', True),
+                        user_db.get('token'),
+                        user_db.get('student_id'),
+                        user_db.get('homework'),
+                    )
+                except AttributeError:
+                    await message.answer(
+                        'У вас отсутствует имя пользователя! Пожалуйста добавьте его в настройках аккаунта.',
+                        reply_markup=username_button(),
+                    )
+                    return None
+            else:
+                return UserClass(message.from_user.username, message.from_user.id)
 
     async def save_settings(
         self,

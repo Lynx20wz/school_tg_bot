@@ -6,7 +6,7 @@ from requests import HTTPError, get, post
 from bot.bin import logger, get_weekday
 
 from bot.classes import Homework
-from bot.until import NoToken, ExpiredToken, ServerError
+from bot.until import ExpiredToken, ServerError
 
 
 class Parser:
@@ -72,14 +72,10 @@ class Parser:
             JSON response as a dictionary.
 
         Raises:
-            NoToken: If authentication token is missing.
             ServerError: If server returns 400 status code.
             ExpiredToken: If server returns 401 status code.
             HTTPError: For other HTTP errors.
         """
-        if self.token is None:
-            raise NoToken
-
         headers = headers or self._headers
         cookies = cookies or {}
         params = params or {}

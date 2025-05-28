@@ -9,7 +9,7 @@ from bot.bin import logger, BD_PATH, BD_BACKUP_PATH
 from bot.classes.Homework import Lesson, StudyDay, Homework
 
 
-class BaseDate:
+class DataBase:
     _instance = None
 
     def __new__(cls, *args, **kwargs):  # Singleton

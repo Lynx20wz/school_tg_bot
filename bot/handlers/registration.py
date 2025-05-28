@@ -4,9 +4,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 
 from bot.bin import token_button, main_button
-from bot.classes import UserClass, BaseDate
+from bot.classes import DataBase
 
-db = BaseDate()
+db = DataBase()
 auth_router = Router()
 
 
@@ -25,7 +25,6 @@ async def registration_user(message, state: FSMContext):
 
 
 @auth_router.message(GetToken.token)
-@UserClass.get_user()
 async def end_registration(message, user, state: FSMContext):
     if message.text.strip().startswith('eyJhb'):
         await state.update_data(token=message.text)
