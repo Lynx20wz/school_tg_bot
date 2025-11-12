@@ -1,11 +1,11 @@
 from aiogram.filters import BaseFilter
 
-from bot.bin import ADMIN_IDS
+from bot.config import config
 
 
 class IsAdmin(BaseFilter):
     def __init__(self):
-        self.admins = ADMIN_IDS
+        self.admins = config.ADMIN_IDS
 
     async def __call__(self, message) -> bool:
         return message.from_user.id in self.admins

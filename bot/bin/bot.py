@@ -11,7 +11,7 @@ from aiogram.types import (
 )
 
 from bot.bin import (
-    API_BOT,
+    config,
     logger,
     main_button,
 )
@@ -20,7 +20,7 @@ from bot.filters import IsAdmin
 from bot.middlewares import UserMiddleware, TokenMiddleware, LogMiddleware
 from bot.handlers import *
 
-bot = Bot(API_BOT)
+bot = Bot(config.TOKEN)
 dp = Dispatcher()
 
 
