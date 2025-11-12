@@ -1,4 +1,9 @@
-venv/
+.ruff_cache/
 temp/
 .env
-.idea/
+.venv/
+*.pyc
+*.py~
+**/__pycache__
+
+app/
