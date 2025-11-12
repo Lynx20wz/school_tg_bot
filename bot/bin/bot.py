@@ -1,13 +1,11 @@
 import asyncio
-import sys
 
-
-from aiogram import Bot, F, Dispatcher
+from aiogram import Bot, Dispatcher, F
 from aiogram.filters.command import Command
 from aiogram.types import (
-    Message,
-    BufferedInputFile,
     BotCommand,
+    BufferedInputFile,
+    Message,
 )
 
 from bot.bin import (
@@ -17,7 +15,7 @@ from bot.bin import (
 )
 from bot.classes import DataBase, UserClass
 from bot.filters import IsAdmin
-from bot.middlewares import UserMiddleware, TokenMiddleware, LogMiddleware
+from bot.middlewares import LogMiddleware, TokenMiddleware, UserMiddleware
 from bot.handlers import *
 
 bot = Bot(config.TOKEN)
@@ -44,7 +42,6 @@ async def main():
         auth_router,
         data_get_router,
         settings_router,
-
         # don't put it under this router, it should be the last one.
         unknown_router,
     )
