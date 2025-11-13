@@ -5,10 +5,10 @@ __all__ = (
     'make_debug_button',
     'username_button',
     # Exceptions
-    'ExpiredToken',
-    'NoToken',
+    'ExpiredTokenError',
+    'NoTokenError',
     'ServerError',
 )
 
-from .KeyBoards import *
-from .Exceptions import *
+from .exceptions import *
+from .keyboards import *

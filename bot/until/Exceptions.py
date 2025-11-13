@@ -1,4 +1,4 @@
-class ExpiredToken(Exception):
+class ExpiredTokenError(Exception):
     def __init__(
         self,
         message='Срок действия токена истёк! Пожалуйста введите команду /token, чтобы получить новый токен.',
@@ -6,7 +6,7 @@ class ExpiredToken(Exception):
         super().__init__(message)
 
 
-class NoToken(Exception):
+class NoTokenError(Exception):
     def __init__(
         self,
         message='У вас отсутствует токен! Пожалуйста введите команду /token, чтобы получить его!',

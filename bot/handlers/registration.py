@@ -1,12 +1,12 @@
 from aiogram import Router
-from aiogram.filters import StateFilter, Command
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.state import State, StatesGroup
 
-from bot.bin import token_button, main_button
-from bot.classes import DataBase
+from bot.bin import main_button, token_button
+from DataBase.crud import DataBaseCrud
 
-db = DataBase()
+db = DataBaseCrud()
 auth_router = Router()
 
 
@@ -31,7 +31,7 @@ async def end_registration(message, user, state: FSMContext):
         data = await state.get_data()
         user.token = data.get('token')
         user.student_id = user.parser.get_student_id()
-        await db.update_user(user)
+        await db.update_user(user, ('token', 'student_id'))
         await message.answer(
             f'{user.username}, ваш токен успешно зарегистрирован!',
             reply_markup=main_button(user),

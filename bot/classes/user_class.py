@@ -1,20 +1,25 @@
 import asyncio
-from typing import Union, Optional
+from typing import Optional, Union
 
 from aiogram.types import Message
 
-from bot.bin import username_button, logger
-from .DataBase import DataBase
-from .Parser import Parser
+from bot.bin import logger
+from DataBase.crud import DataBaseCrud
+from DataBase.models import UserModel
 
-db = DataBase()
+from .parser import Parser
+from .serialization_mixin import SerializationMixin
+
+db = DataBaseCrud()
 
 
-class UserClass:
+class UserClass(SerializationMixin):
+    model = UserModel
+
     def __init__(
         self,
-        username: str,
         userid: int,
+        username: str,
         debug: Optional[bool] = False,
         setting_dw: Optional[bool] = False,
         setting_notification: Optional[bool] = True,
@@ -22,12 +27,13 @@ class UserClass:
         token: Optional[str] = None,
         student_id: Optional[int] = None,
         homework_id: Optional[int] = None,
+        **kwargs,
     ):
         """Initializes the user_class object.
 
         Args:
-            username (str): The username of the user.
             userid (int): The ID of the user.
+            username (str): The username of the user.
             debug (bool, optional): A flag indicating whether to enable debug mode. Defaults to False.
             setting_dw (bool, optional): A flag indicating whether to enable delivery notifications. Defaults to False.
             setting_notification (bool, optional): A flag indicating whether to enable notifications. Defaults to True.
@@ -35,16 +41,18 @@ class UserClass:
             token (str, optional): The authentication token for the user. Defaults to None.
             student_id (int, optional): The ID of the student. Defaults to None.
             homework_id (int, optional): The ID of the homework. Defaults to None.
+            kwargs: Additional keyword arguments.
         """
-        self.username = username
+        super().__init__()
         self.userid = userid
+        self.username = username
         self.debug = debug
         self.setting_dw = setting_dw
         self.setting_notification = setting_notification
         self.setting_hide_link = setting_hide_link
         self.data = (
-            username,
             userid,
+            username,
             setting_dw,
             setting_notification,
             setting_hide_link,
@@ -56,54 +64,26 @@ class UserClass:
         self.student_id = student_id
         self.homework_id = homework_id
 
-        asyncio.create_task(
-            db.add_user(
-                (
-                    username,
-                    userid,
-                    debug,
-                    setting_dw,
-                    setting_notification,
-                    setting_hide_link,
-                )
-            )
-        )
+        asyncio.create_task(db.add_user(self.to_model()))
 
     @staticmethod
     async def get_user(message: Union[Message, 'UserClass']):
         if isinstance(message, UserClass):
             return message
         else:
-            user_db = await db(message.from_user.username)
+            user_db = await db(message.from_user.id)
             if user_db is not None:
-                try:
-                    return UserClass(
-                        message.from_user.username,
-                        message.from_user.id,
-                        user_db.get('debug', False),
-                        user_db.get('setting_dw', False),
-                        user_db.get('setting_notification', True),
-                        user_db.get('setting_hide_link', True),
-                        user_db.get('token'),
-                        user_db.get('student_id'),
-                        user_db.get('homework'),
-                    )
-                except AttributeError:
-                    await message.answer(
-                        'У вас отсутствует имя пользователя! Пожалуйста добавьте его в настройках аккаунта.',
-                        reply_markup=username_button(),
-                    )
-                    return None
+                return UserClass.from_model(user_db)
             else:
-                return UserClass(message.from_user.username, message.from_user.id)
+                return UserClass(message.from_user.id, message.from_user.username)
 
     async def save_settings(
         self,
         *,
-        setting_dw: bool = None,
-        setting_notification: bool = None,
-        setting_hide_link: bool = None,
-        debug: bool = None,
+        setting_dw: Optional[bool] = None,
+        setting_notification: Optional[bool] = None,
+        setting_hide_link: Optional[bool] = None,
+        debug: Optional[bool] = None,
     ):
         """The function saves user settings.
 
@@ -119,7 +99,7 @@ class UserClass:
         self.setting_hide_link = setting_hide_link or self.setting_hide_link
         self.debug = debug or self.debug
 
-        asyncio.create_task(db.update_user(self))
+        await db.update_user(self)  # type: ignore
         logger.debug(f'The new settings for user {self.username} have been saved!')
 
     def check_token(self) -> bool:

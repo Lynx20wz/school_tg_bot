@@ -1,20 +1,23 @@
+from datetime import datetime
+from typing import Any, Callable
+
 from aiogram import F, Router
 from aiogram.filters import Command, or_f
 from aiogram.types import Message
 
-from bot.classes import UserClass, Homework, DataBase
+from bot.bin import get_weekday, logger
+from bot.classes import HomeworkWeek, UserClass
 from bot.classes.Homework import StudyDay
-from bot.bin import logger, get_weekday
 from bot.until import main_button
-from datetime import datetime, timedelta
+from DataBase.crud import DataBaseCrud
 
 data_get_router = Router()
-db = DataBase()
+db = DataBaseCrud()
 
 MAX_WIDTH_MESSAGE = 33
 
 
-async def request_handler(func: callable, message: Message, *args, **kwargs) -> dict | None:
+async def request_handler(func: Callable, message: Message, *args, **kwargs) -> Any | None:
     try:
         return func(*args, **kwargs)
     except Exception as e:
@@ -69,7 +72,11 @@ async def schedule(message: Message, user: UserClass):
     response = await request_handler(user.parser.get_schedule, message)
     if not response:
         return
+
     schedule = response.get('days')
+    if schedule is None:
+        await message.answer(f'Произошла ошибка при получении расписания')
+        return
 
     if user.setting_dw:
         output = f'*Расписание на неделю ({response["date"]["begin_date"].strftime("%d.%m")} - {response["date"]["end_date"].strftime("%d.%m")}):*'
@@ -111,16 +118,15 @@ async def homework(message: Message, user: UserClass):
     msg = await message.answer('Ожидайте... ⌛')
 
     # Getting homework
-    pre_hk = await db.get_homework(user.username)
-    if pre_hk and (datetime.now() - pre_hk[1]) < timedelta(hours=1):
-        hk: Homework = pre_hk[0]
-    else:
-        hk: Homework = await request_handler(user.parser.get_homework, message)
-        if not hk:
+    hk = HomeworkWeek.from_model(await db.get_homework(user.userid))
+    if not hk:
+        request_hk = await request_handler(user.parser.get_homework, message)
+        if not request_hk:
             await msg.delete()
             return
 
-        await db.save_homework(user.username, hk)
+        await db.add_homework(user.userid, request_hk.to_model())
+        hk = request_hk
 
     async def get_output_for_day(day: StudyDay) -> str:
         output = f'*Домашка на {day.name} ({day.date.strftime("%d.%m")})*:\n'

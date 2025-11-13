@@ -1,12 +1,12 @@
-from aiogram import Router, F
-
-from bot.classes.DataBase import DataBase
-from bot.classes.UserClass import UserClass
-from bot.bin import logger
-from bot.until.KeyBoards import make_setting_button, main_button
+from aiogram import F, Router
 from aiogram.types import Message
 
-db = DataBase()
+from bot.bin import logger
+from bot.classes.user_class import UserClass
+from bot.until.KeyBoards import main_button, make_setting_button
+from DataBase.crud import DataBaseCrud
+
+db = DataBaseCrud()
 settings_router = Router()
 
 
@@ -111,5 +111,5 @@ async def delete_user(message: Message, user: UserClass):
         user (UserClass): User object
     """
     logger.debug(f'The account has been deleted ({message.from_user.username})')
-    await db.delete_user(user.username)
+    await db.delete_user(user.userid)
     await message.answer('Аккаунт успешно удален!')

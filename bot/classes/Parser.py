@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta
-from typing import Optional, Literal
+from typing import Literal, Optional
 
 from requests import HTTPError, get, post
 
-from bot.bin import logger, get_weekday
+from bot.bin import get_weekday, logger
+from bot.until import ExpiredTokenError, ServerError
 
-from bot.classes import Homework
-from bot.until import ExpiredToken, ServerError
+from .homework import HomeworkWeek
 
 
 class Parser:
@@ -95,7 +95,7 @@ class Parser:
             if e.response.status_code == 400:
                 raise ServerError
             if e.response.status_code == 401:
-                raise ExpiredToken
+                raise ExpiredTokenError
             raise
 
         return response.json()
@@ -138,7 +138,7 @@ class Parser:
         return response['person_id']
 
     # Methods for obtaining data
-    def get_homework(self, date: datetime = datetime.now()) -> Homework:
+    def get_homework(self, date: datetime = datetime.now()) -> HomeworkWeek:
         """The function is parsing homework from "Моя школа".
 
         Args:
@@ -168,11 +168,9 @@ class Parser:
             # cookies=cookie,
         )
 
-        return Homework(self.student_id, date_start, date_end, response)
+        return HomeworkWeek(self.student_id, date_start, date_end, response)
 
-    def get_marks(
-        self, date: datetime = datetime.now(), split: bool = True
-    ) -> tuple[tuple[datetime], dict]:
+    def get_marks(self, date: datetime = datetime.now(), split: bool = True) -> dict[str, dict]:
         """He function for getting marks.
 
         Args:
@@ -210,7 +208,7 @@ class Parser:
         else:
             return response
 
-    def get_schedule(self, split: bool = True) -> dict:
+    def get_schedule(self, split: bool = True) -> dict[str, dict]:
         """The function for getting the schedule.
 
         Args:
@@ -256,4 +254,6 @@ class Parser:
         headers = self._headers
         headers['Auth-Token'] = self.token
 
-        return self._request('https://myschool.mosreg.ru/acl/api/users/profile_info', headers=headers)[0]['id']
+        return self._request(
+            'https://myschool.mosreg.ru/acl/api/users/profile_info', headers=headers
+        )[0]['id']

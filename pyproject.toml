@@ -1,6 +1,6 @@
 [project]
 name = "school-tg-bot"
-version = "0.1.0"
+version = "0.2.0"
 description = "Telegram bot for school"
 readme = "README.md"
 requires-python = ">=3.13.3"
@@ -15,19 +15,25 @@ dependencies = [
     "pydantic-settings>=2.9.1",
     "pyside6==6.9.0",
     "requests~=2.32.3",
+    "sqlalchemy>=2.0.41",
 ]
+[tool.pyright]
+reportMissingImports = "error"
 
 [tool.ruff]
 line-length = 100
 indent-width = 4
 
+
 [tool.ruff.lint]
-select = ["D"]
+select = ["D", "I", "N", "PERF"]
 ignore = ["D101", "D102", "D103", "D104", "D105", "D107", "D100"]
-extend-select = ["D400"]
 pydocstyle.convention = "google"
+
 
 [tool.ruff.format]
 indent-style = "space"
 quote-style = "single"
 
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402"]

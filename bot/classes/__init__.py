@@ -1,11 +1,6 @@
-__all__ = (
-    'DataBase',
-    'UserClass',
-    'Homework',
-    'Parser',
-)
+__all__ = ('HomeworkWeek', 'Parser', 'SerializationMixin', 'UserClass')
 
-from .DataBase import DataBase
-from .Homework import Homework
-from .UserClass import UserClass
-from .Parser import Parser
+from .homework import HomeworkWeek
+from .parser import Parser
+from .serialization_mixin import SerializationMixin
+from .user_class import UserClass

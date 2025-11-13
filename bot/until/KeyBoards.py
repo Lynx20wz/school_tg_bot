@@ -7,14 +7,14 @@ __all__ = (
 )
 
 from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardMarkup,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
 )
 
 
-def main_button(user):
+def main_button(user) -> ReplyKeyboardMarkup:
     buttons = [
         [
             KeyboardButton(text='Расписание 📅'),
@@ -31,7 +31,7 @@ def main_button(user):
     return markup
 
 
-def make_setting_button(user):
+def make_setting_button(user) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         resize_keyboard=True,
         keyboard=[
@@ -49,7 +49,7 @@ def make_setting_button(user):
     )
 
 
-def token_button():
+def token_button() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [

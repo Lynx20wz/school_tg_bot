@@ -1,26 +1,30 @@
 import re
-from datetime import datetime, timedelta
-from typing import Iterator
 from collections import namedtuple
+from datetime import datetime, timedelta
+from typing import Iterator, Optional
 
 from pydantic import BaseModel, Field
-from requests import Response
 
 from bot.bin import get_weekday
+from DataBase.models import HomeworkWeekModel, LessonModel, StudyDayModel
+
+from .serialization_mixin import SerializationMixin
 
 LinkInfo = namedtuple('LinkInfo', ['name', 'link'])
 
 
-class Lesson(BaseModel):
+class Lesson(BaseModel, SerializationMixin):
     name: str
     homework: str = Field(frozen=True)
     links: list[LinkInfo] = Field(examples=[LinkInfo('name', 'link')])
+    model: type = LessonModel
 
 
-class StudyDay(BaseModel):
+class StudyDay(BaseModel, SerializationMixin):
     name: str
     date: datetime = Field(frozen=True)
     lessons: list[Lesson]
+    model: type = StudyDayModel
 
     def __iter__(self) -> Iterator[Lesson]:
         return iter(self.lessons)
@@ -29,15 +33,19 @@ class StudyDay(BaseModel):
         return len(self.lessons)
 
 
-class Homework:
+class HomeworkWeek(SerializationMixin):
+    model = HomeworkWeekModel
+
     def __init__(
         self,
         id_: int,
         begin: datetime,
         end: datetime,
-        response: Response = None,
-        days: list[StudyDay] = None,
+        response: Optional[dict] = None,
+        days: Optional[list[StudyDay]] = None,
+        **kwargs,
     ):
+        super().__init__()
         # Date
         self.id_: int = id_
         self._begin: datetime = begin
@@ -100,7 +108,7 @@ class Homework:
         return days
 
     @staticmethod
-    def __process_material_item(item: dict) -> tuple[str, str]:
+    def __process_material_item(item: dict) -> LinkInfo:
         """Processes the individual material and returns the reference information.
 
         Returns:
@@ -108,6 +116,6 @@ class Homework:
         """
         # FIXME: links doesn't work
         if re.search(r'\.(?:png|jpg|docx|pptx)$', item.get('title', ''), re.MULTILINE):
-            return item.get('title'), item.get('link')
+            return LinkInfo(item.get('title'), item.get('link'))
         else:
-            return item.get('title'), item['urls'][2]['url']
+            return LinkInfo(item.get('title'), item['urls'][2]['url'])

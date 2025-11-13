@@ -5,8 +5,8 @@ from typing import Optional, Union
 
 import aiosqlite
 
-from bot.bin import logger, BD_PATH, BD_BACKUP_PATH
-from bot.classes.Homework import Lesson, StudyDay, Homework
+from bot.bin import BD_BACKUP_PATH, BD_PATH, logger
+from bot.classes.Homework import HomeworkWeek, Lesson, StudyDay
 
 
 class DataBase:
@@ -192,7 +192,7 @@ class DataBase:
                 return None
 
     # Homework
-    async def save_homework(self, username: str, homework: Homework):
+    async def save_homework(self, username: str, homework: HomeworkWeek):
         async with aiosqlite.connect(self.path) as db:
             # Check if there is a homework_id for the user
             async with db.execute(
@@ -275,7 +275,7 @@ class DataBase:
 
             await db.commit()
 
-    async def get_homework(self, username: str) -> Optional[tuple[Homework, datetime]]:
+    async def get_homework(self, username: str) -> Optional[tuple[HomeworkWeek, datetime]]:
         async with aiosqlite.connect(self.path) as db:
             # Get homework_id, begin, end, and timestamp
             async with db.execute(
@@ -333,7 +333,7 @@ class DataBase:
                     days.append(StudyDay(name=name, date=date, lessons=lessons))
 
             # Create Homework object
-            homework = Homework(id_=homework_id, begin=begin, end=end, days=days)
+            homework = HomeworkWeek(id_=homework_id, begin=begin, end=end, days=days)
             return homework, timestamp
 
     # Other

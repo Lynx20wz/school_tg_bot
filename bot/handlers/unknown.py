@@ -1,4 +1,4 @@
-from aiogram import Router, F
+from aiogram import F, Router
 
 from bot.bin import logger
 

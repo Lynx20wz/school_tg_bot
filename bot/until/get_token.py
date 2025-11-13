@@ -1,3 +1,5 @@
+# pyright: ignore[all]
+
 """Tool using selenium to get authorization token for "gosuslugi" by login and password.
 
 NOT USED NOW due to impossibility to provide security guarantees for login data

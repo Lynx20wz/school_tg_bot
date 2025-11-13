@@ -19,11 +19,11 @@ class Config(BaseSettings):
     ADMIN_IDS: list[int]
 
     @property
-    def DB_URL(self):
+    def DB_URL(self) -> str:  # noqa: N802
         return f'sqlite+aiosqlite:///{self.DB_PATH}'
 
     @property
-    def TOKEN(self):
+    def TOKEN(self) -> str:  # noqa: N802
         return self.DEBUG_TOKEN if self.DEBUG else self.RELEASE_TOKEN
 
 

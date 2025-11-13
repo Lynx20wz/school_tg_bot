@@ -13,10 +13,11 @@ from bot.bin import (
     logger,
     main_button,
 )
-from bot.classes import DataBase, UserClass
+from bot.classes import UserClass
 from bot.filters import IsAdmin
-from bot.middlewares import LogMiddleware, TokenMiddleware, UserMiddleware
 from bot.handlers import *
+from bot.middlewares import LogMiddleware, TokenMiddleware, UserMiddleware
+from DataBase.crud import DataBaseCrud
 
 bot = Bot(config.TOKEN)
 dp = Dispatcher()
@@ -26,7 +27,7 @@ dp = Dispatcher()
 @dp.message(F.text, Command('start'))
 async def start(message: Message, user: UserClass):
     logger.info(f'The bot was launched by {message.from_user.username}')
-    with open('bot/loging.png', 'rb') as file:
+    with open('bot/logging.png', 'rb') as file:
         await message.answer_photo(
             photo=BufferedInputFile(file.read(), filename='Логирование'),
             caption="""Привет. Этот бот создан для вашего удобства и комфорта! Здесь вы можете глянуть расписание, дз, и т.д. Найдёте ошибки сообщите: @Lynx20wz)
@@ -36,7 +37,7 @@ async def start(message: Message, user: UserClass):
 
 
 async def main():
-    db = DataBase()
+    db = DataBaseCrud()
     dp.include_routers(
         debug_router,
         auth_router,
@@ -63,12 +64,11 @@ async def main():
     )
 
     await bot.delete_webhook(drop_pending_updates=True)
-    await db.restart_bot(False if '-back' in sys.argv else True)
+    await db.create_tables()
     logger.info('Bot restart!')
     try:
         await dp.start_polling(bot)
     finally:
-        await db.backup_create()
         await bot.close()
 
 

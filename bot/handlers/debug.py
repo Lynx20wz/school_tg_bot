@@ -1,13 +1,13 @@
 import json
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.filters import Command, or_f
 from loguru import logger
 
 from bot.bin import main_button, make_debug_button
-from bot.classes import DataBase
+from DataBase.crud import DataBaseCrud
 
-db = DataBase()
+db = DataBaseCrud()
 debug_router = Router()
 
 
@@ -47,19 +47,6 @@ async def exit_debug_commands(message, user):
         reply_markup=main_button(user),
         disable_notification=user.setting_notification,
     )
-
-
-@debug_router.message(F.text, Command('sql'))
-async def sql_debug(message, command):
-    command_args = command.args
-    if command_args is None:
-        await message.answer('Вы не указали аргументы для команды!')
-        return
-    else:
-        command, *args = command_args.split(' | ')
-        logger.debug(f'{command=} - {args=}')
-        res = await db.custom_command(command, args)
-        await message.answer(f'Ответ:\n{str(res)}')
 
 
 @debug_router.message(F.text, Command('u', 'user', 'users'))
