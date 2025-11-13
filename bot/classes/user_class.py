@@ -3,9 +3,8 @@ from typing import Optional, Union
 
 from aiogram.types import Message
 
-from bot.bin import logger
-from DataBase.crud import DataBaseCrud
-from DataBase.models import UserModel
+from bot.until import logger
+from database import DataBaseCrud, UserModel
 
 from .parser import Parser
 from .serialization_mixin import SerializationMixin

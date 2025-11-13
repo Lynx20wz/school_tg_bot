@@ -8,13 +8,14 @@ NOT USED NOW due to impossibility to provide security guarantees for login data
 import os
 import time
 
-from loguru import logger
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
+
+from bot.until import logger
 
 
 def get_token(login, password):

@@ -1,10 +1,9 @@
 from aiogram import F, Router
 from aiogram.types import Message
 
-from bot.bin import logger
-from bot.classes.user_class import UserClass
-from bot.until.KeyBoards import main_button, make_setting_button
-from DataBase.crud import DataBaseCrud
+from bot.classes import UserClass
+from bot.until import logger, main_button, make_setting_button
+from database import DataBaseCrud
 
 db = DataBaseCrud()
 settings_router = Router()

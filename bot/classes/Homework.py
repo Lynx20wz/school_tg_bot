@@ -5,8 +5,8 @@ from typing import Iterator, Optional
 
 from pydantic import BaseModel, Field
 
-from bot.bin import get_weekday
-from DataBase.models import HomeworkWeekModel, LessonModel, StudyDayModel
+from bot.until import get_weekday
+from database import HomeworkWeekModel, LessonModel, StudyDayModel
 
 from .serialization_mixin import SerializationMixin
 

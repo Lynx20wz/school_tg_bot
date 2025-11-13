@@ -8,16 +8,13 @@ from aiogram.types import (
     Message,
 )
 
-from bot.bin import (
-    config,
-    logger,
-    main_button,
-)
 from bot.classes import UserClass
+from bot.config import config
 from bot.filters import IsAdmin
 from bot.handlers import *
 from bot.middlewares import LogMiddleware, TokenMiddleware, UserMiddleware
-from DataBase.crud import DataBaseCrud
+from bot.until import logger, main_button
+from database import DataBaseCrud
 
 bot = Bot(config.TOKEN)
 dp = Dispatcher()

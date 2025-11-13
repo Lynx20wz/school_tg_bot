@@ -8,7 +8,13 @@ __all__ = (
     'ExpiredTokenError',
     'NoTokenError',
     'ServerError',
+    # Functions
+    'get_weekday',
+    # Other
+    'logger',
 )
 
 from .exceptions import *
+from .get_weekday import get_weekday
 from .keyboards import *
+from .logger import logger

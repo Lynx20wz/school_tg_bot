@@ -1,6 +1,6 @@
 from aiogram import F, Router
 
-from bot.bin import logger
+from bot.until import logger
 
 unknown_router = Router()
 

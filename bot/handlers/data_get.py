@@ -5,11 +5,9 @@ from aiogram import F, Router
 from aiogram.filters import Command, or_f
 from aiogram.types import Message
 
-from bot.bin import get_weekday, logger
-from bot.classes import HomeworkWeek, UserClass
-from bot.classes.Homework import StudyDay
-from bot.until import main_button
-from DataBase.crud import DataBaseCrud
+from bot.classes import HomeworkWeek, StudyDay, UserClass
+from bot.until import get_weekday, logger, main_button
+from database import DataBaseCrud
 
 data_get_router = Router()
 db = DataBaseCrud()

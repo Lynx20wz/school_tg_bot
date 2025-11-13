@@ -1,29 +1,3 @@
-__all__ = (
-    # Const
-    'config',
-    'logger',
-    # KeyBoards
-    'username_button',
-    'main_button',
-    'make_setting_button',
-    'token_button',
-    'make_debug_button',
-    'username_button',
-    # Functions
-    'get_weekday',
-    # Exceptions
-    'ExpiredTokenError',
-    'NoTokenError',
-    'ServerError',
-)
-
-
-from loguru import logger
-
-from bot.config import config
-from bot.until import *  # Exceptions and KeyBoards
-
-
 def get_weekday(number: int | None = None) -> str | list[str]:
     weekdays = {
         1: 'Понедельник',

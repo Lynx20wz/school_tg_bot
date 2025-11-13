@@ -3,8 +3,8 @@ from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from bot.bin import main_button, token_button
-from DataBase.crud import DataBaseCrud
+from bot.until import main_button, token_button
+from database import DataBaseCrud
 
 db = DataBaseCrud()
 auth_router = Router()

@@ -1,7 +1,7 @@
 from aiogram import BaseMiddleware
 from aiogram.types import Message
 
-from bot.bin import logger
+from bot.until import logger
 
 
 class TokenMiddleware(BaseMiddleware):

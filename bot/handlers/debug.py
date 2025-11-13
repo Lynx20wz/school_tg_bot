@@ -2,10 +2,9 @@ import json
 
 from aiogram import F, Router
 from aiogram.filters import Command, or_f
-from loguru import logger
 
-from bot.bin import main_button, make_debug_button
-from DataBase.crud import DataBaseCrud
+from bot.until import logger, main_button, make_debug_button
+from database import DataBaseCrud
 
 db = DataBaseCrud()
 debug_router = Router()

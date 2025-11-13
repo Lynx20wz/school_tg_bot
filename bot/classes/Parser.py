@@ -3,8 +3,7 @@ from typing import Literal, Optional
 
 from requests import HTTPError, get, post
 
-from bot.bin import get_weekday, logger
-from bot.until import ExpiredTokenError, ServerError
+from bot.until import ExpiredTokenError, ServerError, get_weekday, logger
 
 from .homework import HomeworkWeek
 
