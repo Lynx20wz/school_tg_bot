@@ -15,18 +15,9 @@ db = DataBaseCrud()
 MAX_WIDTH_MESSAGE = 33
 
 
-async def request_handler(func: Callable, message: Message, *args, **kwargs) -> Any | None:
-    try:
-        return func(*args, **kwargs)
-    except Exception as e:
-        logger.error(e)
-        await message.answer(str(e))
-        return None
-
-
 @data_get_router.message(or_f(F.text == 'Оценки 📝', Command('marks')))
 async def marks(message: Message, user: UserClass):
-    response = await request_handler(user.parser.get_marks, message)
+    response = user.parser.get_marks()
     if not response:
         return
 

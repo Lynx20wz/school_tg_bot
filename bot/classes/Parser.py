@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from functools import wraps
 from typing import Literal, Optional
 
 from requests import HTTPError, get, post
@@ -100,6 +101,22 @@ class Parser:
         return response.json()
 
     @staticmethod
+    def request_handler():
+        def wrapper(func):
+            @wraps(func)
+            async def wrapped(message, *args, **kwargs):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    logger.error(e)
+                    await message.answer(str(e))
+                    return None
+
+            return wrapped
+
+        return wrapper
+
+    @staticmethod
     def _get_monday_date(date: datetime) -> datetime:
         name_of_day = date.isoweekday()
         return (
@@ -136,6 +153,7 @@ class Parser:
         )
         return response['person_id']
 
+    @request_handler()
     # Methods for obtaining data
     def get_homework(self, date: datetime = datetime.now()) -> HomeworkWeek:
         """The function is parsing homework from "Моя школа".
@@ -169,6 +187,7 @@ class Parser:
 
         return HomeworkWeek(self.student_id, date_start, date_end, response)
 
+    @request_handler()
     def get_marks(self, date: datetime = datetime.now(), split: bool = True) -> dict[str, dict]:
         """He function for getting marks.
 
@@ -207,6 +226,7 @@ class Parser:
         else:
             return response
 
+    @request_handler()
     def get_schedule(self, split: bool = True) -> dict[str, dict]:
         """The function for getting the schedule.
 
@@ -244,6 +264,7 @@ class Parser:
         else:
             return response
 
+    @request_handler()
     def get_student_id(self) -> int:
         """The function for getting student id.
 
