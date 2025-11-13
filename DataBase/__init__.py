@@ -7,5 +7,5 @@ __all__ = (
     'StudyDayModel',
 )
 
-from crud import DataBaseCrud
-from models import *
+from .crud import DataBaseCrud
+from .models import *
