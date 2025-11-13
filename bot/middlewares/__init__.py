@@ -1,5 +1,5 @@
-__all__ = ('UserMiddleware', 'TokenMiddleware', 'LogMiddleware')
+__all__ = ('UserMiddleware', 'LogMiddleware', 'TokenMiddleware')
 
-from .UserMiddleware import UserMiddleware
-from .TokenMiddleware import TokenMiddleware
-from .LogMiddleware import LogMiddleware
+from .log_middleware import LogMiddleware
+from .token_middleware import TokenMiddleware
+from .user_middleware import UserMiddleware

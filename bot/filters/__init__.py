@@ -1,3 +1,3 @@
 __all__ = ('IsAdmin',)
 
-from .IsAdmin import IsAdmin
+from .is_admin import IsAdmin

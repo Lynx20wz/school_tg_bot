@@ -1,5 +1,6 @@
 from aiogram import BaseMiddleware
 from aiogram.types import Message
+
 from bot.classes import UserClass
 
 

@@ -12,8 +12,8 @@ __all__ = (
     # Functions
     'get_weekday',
     # Exceptions
-    'ExpiredToken',
-    'NoToken',
+    'ExpiredTokenError',
+    'NoTokenError',
     'ServerError',
 )
 
