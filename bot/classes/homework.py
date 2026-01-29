@@ -53,10 +53,11 @@ class HomeworkWeek(SerializationMixin):
         self.date: tuple[datetime, datetime] = begin, end
 
         # Data
+        self.__days: list[StudyDay]
         if days:
-            self.__days: list[StudyDay] = days
+            self.__days = days
         elif response:
-            self.__days: list[StudyDay] = self.__get_ready_homework(response)
+            self.__days = self.__get_ready_homework(response)
         else:
             raise ValueError('Either response or days must be provided.')
 

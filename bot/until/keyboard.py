@@ -13,8 +13,10 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
 )
 
+from bot.classes import UserClass
 
-def main_button(user) -> ReplyKeyboardMarkup:
+
+def main_button(user: UserClass) -> ReplyKeyboardMarkup:
     buttons = [
         [
             KeyboardButton(text='Расписание 📅'),
@@ -31,7 +33,7 @@ def main_button(user) -> ReplyKeyboardMarkup:
     return markup
 
 
-def make_setting_button(user) -> ReplyKeyboardMarkup:
+def make_setting_button(user: UserClass) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         resize_keyboard=True,
         keyboard=[

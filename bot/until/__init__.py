@@ -16,5 +16,5 @@ __all__ = (
 
 from .exceptions import *
 from .get_weekday import get_weekday
-from .keyboards import *
+from .keyboard import *
 from .logger import logger

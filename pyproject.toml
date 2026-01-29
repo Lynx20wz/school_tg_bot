@@ -5,22 +5,22 @@ description = "Telegram bot for school"
 readme = "README.md"
 requires-python = ">=3.13.3"
 dependencies = [
-    "aiogram==3.20.0",
+    "aiogram==3.24.0",
     "aiosqlite>=0.21.0",
     "colorama~=0.4.6",
     "coverage==7.8.2",
     "environs==14.2.0",
     "loguru~=0.7.2",
-    "psycopg>=3.2.9",
-    "pydantic-settings>=2.9.1",
-    "pyside6==6.9.0",
+    "pydantic-settings>=2.12.0",
     "requests~=2.32.3",
-    "sqlalchemy>=2.0.41",
+    "sqlalchemy>=2.0.46",
 ]
+
 [tool.pyright]
+typeCheckingMode = "standard"
 reportMissingImports = "error"
 reportIncompatibleMethodOverride = "none"
-
+reportOptionalMemberAccess = "none" # because of the aiogram specificity
 
 [tool.ruff]
 line-length = 100
