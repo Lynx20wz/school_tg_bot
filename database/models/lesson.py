@@ -1,8 +1,12 @@
-# pyright: reportUndefinedVariable=false
+from typing import TYPE_CHECKING
+
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
+
+if TYPE_CHECKING:
+    from database import StudyDayModel
 
 
 class LessonModel(Base):
@@ -14,4 +18,4 @@ class LessonModel(Base):
     homework: Mapped[str | None]
     links: Mapped[str | None]
 
-    study_day: Mapped['StudyDayModel'] = relationship(back_populates='lessons')
+    study_day: Mapped[StudyDayModel] = relationship(back_populates='lessons')

@@ -5,10 +5,10 @@ __all__ = (
     'StudyDay',
     'Parser',
     'SerializationMixin',
-    'UserClass',
+    'User',
 )
 
 from .homework import HomeworkWeek, Lesson, LinkInfo, StudyDay
 from .parser import Parser
 from .serialization_mixin import SerializationMixin
-from .user_class import UserClass
+from .user import User

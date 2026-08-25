@@ -18,7 +18,7 @@ class Config(BaseSettings):
 
     @model_validator(mode='before')
     @classmethod
-    def set_debug_mode(cls, data: dict[str, Any]) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
+    def set_debug_mode(cls, data: dict[str, Any]) -> dict[str, Any]:
         if '-d' in sys.argv or getenv('IS_DEV'):
             data['is_debug'] = True
         return data

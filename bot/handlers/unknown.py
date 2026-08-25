@@ -1,12 +1,14 @@
 from aiogram import F, Router
+from aiogram.types import Message
 
-from bot.until import logger
+from bot.classes import User
+from bot.logger import logger
 
 unknown_router = Router()
 
 
 @unknown_router.message(F.text)
-async def unknown_command(message, user):
+async def unknown_command(message: Message, user: User):
     logger.error(
         f'Non-existent command has been called ({message.from_user.username}):\n"{message.text}"'
     )

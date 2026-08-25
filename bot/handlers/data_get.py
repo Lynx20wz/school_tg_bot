@@ -1,12 +1,12 @@
 from datetime import datetime
-from typing import Any, Callable
 
 from aiogram import F, Router
 from aiogram.filters import Command, or_f
 from aiogram.types import Message
 
-from bot.classes import HomeworkWeek, StudyDay, UserClass
-from bot.until import get_weekday, logger, main_button
+from bot.classes import HomeworkWeek, StudyDay, User
+from bot.keyboard import main_kb
+from bot.until import get_weekday
 from database import DataBaseCrud
 
 data_get_router = Router()
@@ -16,7 +16,7 @@ MAX_WIDTH_MESSAGE = 33
 
 
 @data_get_router.message(or_f(F.text == 'Оценки 📝', Command('marks')))
-async def marks(message: Message, user: UserClass):
+async def marks(message: Message, user: User):
     response = user.parser.get_marks()
     if not response:
         return
@@ -50,15 +50,17 @@ async def marks(message: Message, user: UserClass):
 
     await message.answer(
         output,
-        reply_markup=main_button(user),
+        reply_markup=main_kb(user),
         disable_notification=user.setting_notification,
         parse_mode='Markdown',
     )
 
 
 @data_get_router.message(or_f(F.text == 'Расписание 📅', Command('schedule')))
-async def schedule(message: Message, user: UserClass):
-    response = await request_handler(user.parser.get_schedule, message)
+async def schedule(message: Message, user: User):
+    response = await request_handler(
+        user.parser.get_schedule, message
+    )  # TODO change to user.parser.get_schedule()
     if not response:
         return
 
@@ -97,7 +99,7 @@ async def schedule(message: Message, user: UserClass):
 
 
 @data_get_router.message(or_f(F.text == 'Домашнее задание 📓', Command('homework')))
-async def homework(message: Message, user: UserClass):
+async def homework(message: Message, user: User):
     """Sends the text of homework in accordance with the user settings.
 
     Args:
@@ -109,7 +111,9 @@ async def homework(message: Message, user: UserClass):
     # Getting homework
     hk = HomeworkWeek.from_model(await db.get_homework(user.userid))
     if not hk:
-        request_hk = await request_handler(user.parser.get_homework, message)
+        request_hk = await request_handler(
+            user.parser.get_homework, message
+        )  # TODO change to user.parser.get_hk()
         if not request_hk:
             await msg.delete()
             return

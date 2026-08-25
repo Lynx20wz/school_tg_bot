@@ -11,16 +11,17 @@ dependencies = [
     "coverage==7.15.4",
     "environs==15.1.0",
     "loguru~=0.7.2",
+    "prometheus-client>=0.26.0",
     "pydantic-settings>=2.12.0",
     "requests~=2.34.2",
     "sqlalchemy>=2.0.46",
 ]
 
 [tool.pyright]
-# because of the aiogram specificity
+typeCheckingMode = "standard"
 reportIncompatibleMethodOverride = "none"
+# because of the aiogram specificity
 reportOptionalMemberAccess = "none"
-reportUnusedCallResult="none"
 
 [tool.ruff]
 line-length = 100

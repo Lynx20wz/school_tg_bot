@@ -1,7 +1,11 @@
-# pyright: reportUndefinedVariable=false
+from typing import TYPE_CHECKING
+
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
+
+if TYPE_CHECKING:
+    from database import StudyDayModel, UserModel
 
 
 class HomeworkWeekModel(Base):
@@ -12,7 +16,7 @@ class HomeworkWeekModel(Base):
     end: Mapped[str]
     timestamp: Mapped[str]
 
-    users: Mapped[list['UserModel']] = relationship(back_populates='homework')
-    study_days: Mapped[list['StudyDayModel']] = relationship(
+    users: Mapped[list[UserModel]] = relationship(back_populates='homework')
+    study_days: Mapped[list[StudyDayModel]] = relationship(
         back_populates='homework', cascade='all, delete-orphan'
     )

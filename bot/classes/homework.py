@@ -1,7 +1,7 @@
 import re
-from collections import namedtuple
+from collections.abc import Iterator
 from datetime import datetime, timedelta
-from typing import Iterator, Optional
+from typing import Any, NamedTuple, override
 
 from pydantic import BaseModel, Field
 
@@ -10,7 +10,10 @@ from database import HomeworkWeekModel, LessonModel, StudyDayModel
 
 from .serialization_mixin import SerializationMixin
 
-LinkInfo = namedtuple('LinkInfo', ['name', 'link'])
+
+class LinkInfo(NamedTuple):
+    name: str
+    link: str
 
 
 class Lesson(BaseModel, SerializationMixin):
@@ -26,6 +29,7 @@ class StudyDay(BaseModel, SerializationMixin):
     lessons: list[Lesson]
     model: type = StudyDayModel
 
+    @override
     def __iter__(self) -> Iterator[Lesson]:
         return iter(self.lessons)
 
@@ -34,16 +38,16 @@ class StudyDay(BaseModel, SerializationMixin):
 
 
 class HomeworkWeek(SerializationMixin):
-    model = HomeworkWeekModel
+    model: type = HomeworkWeekModel
 
     def __init__(
         self,
         id_: int,
         begin: datetime,
         end: datetime,
-        response: Optional[dict] = None,
-        days: Optional[list[StudyDay]] = None,
-        **kwargs,
+        response: dict[str, Any] | None = None,
+        days: list[StudyDay] | None = None,
+        **kwargs: dict[str, Any],
     ):
         super().__init__()
         # Date
@@ -80,7 +84,7 @@ class HomeworkWeek(SerializationMixin):
     def days(self) -> list[StudyDay]:
         return self.__days
 
-    def __get_ready_homework(self, raw_response: dict) -> list[StudyDay]:
+    def __get_ready_homework(self, raw_response: dict[str, Any]) -> list[StudyDay]:
         """Collect ready homework data from raw response."""
         days = [
             StudyDay(name=day, date=datetime.now() + timedelta(days=i), lessons=[])
@@ -116,7 +120,8 @@ class HomeworkWeek(SerializationMixin):
             A dictionary which contains links for each lesson
         """
         # FIXME: links doesn't work
-        if re.search(r'\.(?:png|jpg|docx|pptx)$', item.get('title', ''), re.MULTILINE):
-            return LinkInfo(item.get('title'), item.get('link'))
+        title: str = item.get('title', '')
+        if re.search(r'\.(?:png|jpg|docx|pptx)$', title, re.MULTILINE):
+            return LinkInfo(title, item.get('link'))
         else:
-            return LinkInfo(item.get('title'), item['urls'][2]['url'])
+            return LinkInfo(title, item['urls'][2]['url'])

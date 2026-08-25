@@ -1,8 +1,9 @@
 from aiogram import F, Router
 from aiogram.types import Message
 
-from bot.classes import UserClass
-from bot.until import logger, main_button, make_setting_button
+from bot.classes import User
+from bot.keyboard import main_kb, settings_kb
+from bot.logger import logger
 from database import DataBaseCrud
 
 db = DataBaseCrud()
@@ -10,8 +11,8 @@ settings_router = Router()
 
 
 @settings_router.message(F.text == 'Настройки ⚙️')
-async def settings(message: Message, user: UserClass):
-    markup = make_setting_button(user)
+async def settings(message: Message, user: User):
+    markup = settings_kb(user)
     await message.answer(
         text=r"""
 Настройки:
@@ -36,12 +37,12 @@ async def settings(message: Message, user: UserClass):
 
 
 @settings_router.message(F.text.in_(['Выдача на неделю', 'Выдача на день']))
-async def change_delivery(message: Message, user: UserClass):
+async def change_delivery(message: Message, user: User):
     if message.text == 'Выдача на неделю':
         user.setting_dw = False
     elif message.text == 'Выдача на день':
         user.setting_dw = True
-    markup = make_setting_button(user)
+    markup = settings_kb(user)
     await user.save_settings(setting_dw=user.setting_dw)
     logger.debug(f'Changed issue settings ({message.from_user.username} - {user.setting_dw})')
     await message.answer(
@@ -52,12 +53,12 @@ async def change_delivery(message: Message, user: UserClass):
 
 
 @settings_router.message(F.text.in_(['Уведомления вкл.', 'Уведомления выкл.']))
-async def change_notification(message: Message, user: UserClass):
+async def change_notification(message: Message, user: User):
     if message.text == 'Уведомления вкл.':
         user.setting_notification = False
     elif message.text == 'Уведомления выкл.':
         user.setting_notification = True
-    markup = make_setting_button(user)
+    markup = settings_kb(user)
     await user.save_settings(setting_notification=user.setting_notification)
     logger.debug(
         f'Changed notification settings ({message.from_user.username} - {user.setting_notification})'
@@ -70,12 +71,12 @@ async def change_notification(message: Message, user: UserClass):
 
 
 @settings_router.message(F.text.in_(['Скрыть ссылки', 'Показать ссылки']))
-async def change_link(message: Message, user: UserClass):
+async def change_link(message: Message, user: User):
     if message.text == 'Скрыть ссылки':
         user.setting_hide_link = True
     elif message.text == 'Показать ссылки':
         user.setting_hide_link = False
-    markup = make_setting_button(user)
+    markup = settings_kb(user)
     await user.save_settings(setting_hide_link=user.setting_hide_link)
     logger.debug(f'Changed link settings ({message.from_user.username} - {user.setting_hide_link})')
     await message.answer(
@@ -86,7 +87,7 @@ async def change_link(message: Message, user: UserClass):
 
 
 @settings_router.message(F.text == 'Назад')
-async def exit_settings(message: Message, user: UserClass):
+async def exit_settings(message: Message, user: User):
     logger.debug(f'Out of the settings ({message.from_user.username})')
     await user.save_settings(
         setting_dw=user.setting_dw,
@@ -96,13 +97,13 @@ async def exit_settings(message: Message, user: UserClass):
     )
     await message.answer(
         'Главное меню',
-        reply_markup=main_button(user),
+        reply_markup=main_kb(user),
         disable_notification=user.setting_notification,
     )
 
 
 @settings_router.message(F.text == 'Удалить аккаунт')
-async def delete_user(message: Message, user: UserClass):
+async def delete_user(message: Message, user: User):
     """Complete deletion of a user.
 
     Args:

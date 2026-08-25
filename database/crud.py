@@ -1,26 +1,31 @@
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select, update
 from sqlalchemy.exc import NoResultFound
 
-from bot.until import logger
+from bot.logger import logger
 
 from .database import *
 from .models import *
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 
 class DataBaseCrud:
     """Interface to the database."""
 
-    def __init__(self, engine=engine, session_maker=sm):
-        self.engine = engine
-        self.session_maker = session_maker
+    def __init__(
+        self, engine: AsyncEngine = engine, session_maker: async_sessionmaker[AsyncSession] = sm
+    ):
+        self.engine: AsyncEngine = engine
+        self.session_maker: async_sessionmaker[AsyncSession] = session_maker
 
-    async def __call__(self, userid: Optional[int] = None) -> None | UserModel | list[UserModel]:
+    async def __call__(self, userid: int | None = None) -> None | UserModel | list[UserModel]:
         return await self.get_user(userid)
 
-    async def create_tables(self):
+    async def init(self):
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
@@ -33,7 +38,7 @@ class DataBaseCrud:
                 await session.commit()
                 logger.debug(f'User {user.username} has been added to the database!')
 
-    async def get_user(self, userid: Optional[int] = None) -> None | UserModel | list[UserModel]:
+    async def get_user(self, userid: int | None = None) -> None | UserModel | list[UserModel]:
         """Returns a user from the database if username, else returns all users.
 
         Args:
@@ -49,7 +54,7 @@ class DataBaseCrud:
             else:
                 return list((await session.execute(select(UserModel))).scalars().all())
 
-    async def update_user(self, user: UserModel, changes: Optional[tuple[str, ...]] = None):
+    async def update_user(self, user: UserModel, changes: tuple[str, ...] | None = None):
         """Updates a user in the database.
 
         Args:
@@ -75,7 +80,7 @@ class DataBaseCrud:
         async with self.session_maker() as session:
             try:
                 query = select(UserModel).filter_by(userid=userid)
-                user = (await session.execute(query)).scalar_one()
+                user: UserModel = (await session.execute(query)).scalar_one()
                 homework = user.homework
                 await session.delete(user)
                 if not homework.users:

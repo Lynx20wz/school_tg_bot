@@ -6,7 +6,7 @@ from sqlalchemy.orm import DeclarativeBase
 from bot.config import config
 
 engine = create_async_engine(
-    url=config.DB_URL,
+    url=config.db_url,
     echo=False,
     # pool_size=5,
     # max_overflow=10,

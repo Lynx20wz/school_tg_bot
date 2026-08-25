@@ -1,10 +1,12 @@
-# pyright: reportUndefinedVariable=false
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from sqlalchemy import Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
+
+if TYPE_CHECKING:
+    from database import HomeworkWeekModel
 
 d0 = Annotated[bool, mapped_column(Boolean(), server_default='FALSE')]
 
@@ -24,4 +26,4 @@ class UserModel(Base):
     student_id: Mapped[int]
     homework_id: Mapped[int | None] = mapped_column(ForeignKey('homework_week.id'))
 
-    homework: Mapped['HomeworkWeekModel'] = relationship(back_populates='users')
+    homework: Mapped[HomeworkWeekModel] = relationship(back_populates='users')

@@ -1,9 +1,9 @@
 import asyncio
-from typing import Optional, Union
+from typing import Any
 
 from aiogram.types import Message
 
-from bot.until import logger
+from bot.logger import logger
 from database import DataBaseCrud, UserModel
 
 from .parser import Parser
@@ -12,21 +12,21 @@ from .serialization_mixin import SerializationMixin
 db = DataBaseCrud()
 
 
-class UserClass(SerializationMixin):
-    model = UserModel
+class User(SerializationMixin):
+    model: type = UserModel
 
     def __init__(
         self,
         userid: int,
         username: str,
-        debug: Optional[bool] = False,
-        setting_dw: Optional[bool] = False,
-        setting_notification: Optional[bool] = True,
-        setting_hide_link: Optional[bool] = True,
-        token: Optional[str] = None,
-        student_id: Optional[int] = None,
-        homework_id: Optional[int] = None,
-        **kwargs,
+        debug: bool | None = False,
+        setting_dw: bool | None = False,
+        setting_notification: bool | None = True,
+        setting_hide_link: bool | None = True,
+        token: str | None = None,
+        student_id: int | None = None,
+        homework_id: int | None = None,
+        **kwargs: dict[str, Any],
     ):
         """Initializes the user_class object.
 
@@ -43,13 +43,13 @@ class UserClass(SerializationMixin):
             kwargs: Additional keyword arguments.
         """
         super().__init__()
-        self.userid = userid
-        self.username = username
-        self.debug = debug
-        self.setting_dw = setting_dw
-        self.setting_notification = setting_notification
-        self.setting_hide_link = setting_hide_link
-        self.data = (
+        self.userid: int = userid
+        self.username: str = username
+        self.debug: bool | None = debug
+        self.setting_dw: bool | None = setting_dw
+        self.setting_notification: bool | None = setting_notification
+        self.setting_hide_link: bool | None = setting_hide_link
+        self.data: tuple[int, str, bool | None, bool | None, bool | None, bool | None] = (
             userid,
             username,
             setting_dw,
@@ -58,31 +58,31 @@ class UserClass(SerializationMixin):
             debug,
         )
 
-        self.parser = Parser(token, student_id)
-        self._token = token
-        self.student_id = student_id
-        self.homework_id = homework_id
+        self.parser: Parser = Parser(token, student_id)
+        self._token: str | None = token
+        self._student_id: int | None = student_id
+        self.homework_id: int | None = homework_id
 
         asyncio.create_task(db.add_user(self.to_model()))
 
     @staticmethod
-    async def get_user(message: Union[Message, 'UserClass']):
-        if isinstance(message, UserClass):
+    async def get_user(message: Message | User):
+        if isinstance(message, User):
             return message
         else:
             user_db = await db(message.from_user.id)
             if user_db is not None:
-                return UserClass.from_model(user_db)
+                return User.from_model(user_db)
             else:
-                return UserClass(message.from_user.id, message.from_user.username)
+                return User(message.from_user.id, message.from_user.username)
 
     async def save_settings(
         self,
         *,
-        setting_dw: Optional[bool] = None,
-        setting_notification: Optional[bool] = None,
-        setting_hide_link: Optional[bool] = None,
-        debug: Optional[bool] = None,
+        setting_dw: bool | None = None,
+        setting_notification: bool | None = None,
+        setting_hide_link: bool | None = None,
+        debug: bool | None = None,
     ):
         """The function saves user settings.
 
@@ -105,19 +105,19 @@ class UserClass(SerializationMixin):
         return self._token is not None and self.student_id is not None
 
     @property
-    def token(self):
+    def token(self) -> str | None:
         return self._token
 
     @token.setter
-    def token(self, value):
+    def token(self, value: str):
         self._token = value
         self.parser.token = value
 
     @property
-    def student_id(self):
+    def student_id(self) -> int | None:
         return self._student_id
 
     @student_id.setter
-    def student_id(self, value):
+    def student_id(self, value: int):
         self._student_id = value
         self.parser.student_id = value

@@ -1,20 +1,21 @@
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import Literal, Optional
+from typing import Literal
 
 from requests import HTTPError, get, post
 
-from bot.until import ExpiredTokenError, ServerError, get_weekday, logger
+from bot.logger import logger
+from bot.until import ExpiredTokenError, ServerError, get_weekday
 
 from .homework import HomeworkWeek
 
 
 class Parser:
-    def __init__(self, token: Optional[str] = None, student_id: Optional[int] = None):
-        self.token = token
-        if student_id:
-            self.student_id = student_id
-        elif token:
+    def __init__(self, token: str | None = None, student_id: int | None = None):
+        self.token: str | None = token
+        self.student_id: int | None = student_id
+
+        if self.student_id is None and self.token:
             self.student_id = self.get_student_id()
         else:
             self.student_id = None

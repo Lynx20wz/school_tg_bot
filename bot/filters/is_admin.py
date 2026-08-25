@@ -1,11 +1,15 @@
+from typing import override
+
 from aiogram.filters import BaseFilter
+from aiogram.types import Message
 
 from bot.config import config
 
 
 class IsAdmin(BaseFilter):
     def __init__(self):
-        self.admins = config.ADMIN_IDS
+        self.admins: list[int] = config.admin_ids
 
-    async def __call__(self, message) -> bool:
+    @override
+    async def __call__(self, message: Message) -> bool:
         return message.from_user.id in self.admins
