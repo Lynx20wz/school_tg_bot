@@ -1,29 +1,44 @@
-__all__ = ('config',)
+import sys
+from os import getenv
+from typing import Any, ClassVar
 
-from sys import argv
-
+from pydantic import Field, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Config(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env')
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(env_file='.env')
 
-    DEBUG: bool = True if '-debug' in argv else False
-    DB_PATH: str
-    DB_BACKUP_PATH: str
+    is_debug: bool = Field(default=False)
+    db_path: str = Field(default=...)
+    db_backup_path: str = Field(default=...)
+    debug_token: str | None = Field(default=None)
+    release_token: str = Field(default=...)
+    admin_ids: list[int] = Field(default=...)
 
-    DEBUG_TOKEN: str
-    RELEASE_TOKEN: str
+    @model_validator(mode='before')
+    @classmethod
+    def set_debug_mode(cls, data: dict[str, Any]) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
+        if '-d' in sys.argv or getenv('IS_DEV'):
+            data['is_debug'] = True
+        return data
 
-    ADMIN_IDS: list[int]
+    @model_validator(mode='after')
+    def check_tokens(self) -> 'Config':
+        if self.is_debug and not self.debug_token:
+            raise ValueError('debug_token is required when is_debug=True')
+        return self
 
+    @computed_field
     @property
-    def DB_URL(self) -> str:  # noqa: N802
-        return f'sqlite+aiosqlite:///{self.DB_PATH}'
+    def db_url(self) -> str:
+        return f'sqlite+aiosqlite:///{self.db_path}'
 
+    @computed_field
     @property
-    def TOKEN(self) -> str:  # noqa: N802
-        return self.DEBUG_TOKEN if self.DEBUG else self.RELEASE_TOKEN
+    def token(self) -> str:
+        # Thanks to the validator above, debug_token is guaranteed to be str if is_debug=True
+        return self.debug_token if self.is_debug else self.release_token  # pyright: ignore[reportReturnType]
 
 
-config = Config()  # pyright: ignore[reportCallIssue]
+config = Config()
