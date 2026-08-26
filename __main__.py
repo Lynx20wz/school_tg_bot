@@ -8,14 +8,14 @@ from aiogram.types import (
     Message,
 )
 
-from bot.classes import User
 from bot.config import config
 from bot.filters import IsAdmin
 from bot.handlers import *
 from bot.keyboard import main_kb
 from bot.logger import logger
 from bot.middlewares import LogMiddleware, TokenMiddleware, UserMiddleware
-from database import DataBaseCrud
+from bot.middlewares.db import DatabaseMiddleware
+from database import User, init_db
 
 bot = Bot(config.token)
 dp = Dispatcher()
@@ -34,7 +34,6 @@ async def start(message: Message, user: User):
 
 
 async def main():
-    db = DataBaseCrud()
     dp.include_routers(
         debug_router,
         auth_router,
@@ -44,6 +43,7 @@ async def main():
         unknown_router,
     )
 
+    dp.message.outer_middleware(DatabaseMiddleware())
     dp.message.outer_middleware(UserMiddleware())
     debug_router.message.filter(IsAdmin())
     dp.message.middleware(LogMiddleware())
@@ -61,7 +61,7 @@ async def main():
     )
 
     await bot.delete_webhook(drop_pending_updates=True)
-    await db.init()
+    await init_db()
     logger.info('Bot started!')
     await dp.start_polling(bot)
     logger.info('Bot shutdown!')

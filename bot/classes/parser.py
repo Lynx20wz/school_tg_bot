@@ -6,14 +6,15 @@ from requests import HTTPError, get, post
 
 from bot.logger import logger
 from bot.until import ExpiredTokenError, ServerError, get_weekday
+from database import User
 
 from .homework import HomeworkWeek
 
 
 class Parser:
-    def __init__(self, token: str | None = None, student_id: int | None = None):
-        self.token: str | None = token
-        self.student_id: int | None = student_id
+    def __init__(self, user: User):
+        self.token: str | None = user.token
+        self.student_id: int | None = user.student_id
 
         if self.student_id is None and self.token:
             self.student_id = self.get_student_id()

@@ -12,8 +12,13 @@ engine = create_async_engine(
     # max_overflow=10,
 )
 
-sm = async_sessionmaker(autocommit=False, autoflush=False, bind=engine)
+sm = async_sessionmaker(bind=engine, expire_on_commit=False)
 
 
 class Base(DeclarativeBase):
     pass
+
+
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

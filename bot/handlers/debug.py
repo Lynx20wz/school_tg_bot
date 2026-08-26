@@ -4,21 +4,20 @@ from aiogram import F, Router
 from aiogram.filters import Command, or_f
 from aiogram.types import FSInputFile, Message
 
-from bot.classes import User
 from bot.keyboard import debug_kb, main_kb
 from bot.logger import logger
-from database import DataBaseCrud
+from database import UnitOfWork, User
 
-db = DataBaseCrud()
 debug_router = Router()
 
 
 @debug_router.message(or_f(F.text.lower() == 'debug', Command('debug')))
-async def developer(message: Message, user: User):
-    user.debug = True
-    await user.save_settings(debug=user.debug)
-    logger.warning(f'{user.username} получил роль разработчика!')
-    await message.answer(f'Удачной разработки, {user.username}! 😉', reply_markup=main_kb(user))
+async def developer(message: Message, user: User, uow: UnitOfWork):
+    await uow.users.update_settings(user, debug=True)
+    logger.warning(f'{user.userid} получил роль разработчика!')
+    await message.answer(
+        f'Удачной разработки, {message.from_user.username}! 😉', reply_markup=main_kb(user)
+    )
 
 
 @debug_router.message(or_f(F.text == 'Команды дебага', Command('commands')))
@@ -37,8 +36,8 @@ async def command_debug(message: Message):
 
 
 @debug_router.message(F.text == 'Запрос пользователя')
-async def get_user(message: Message):
-    user_data = await db(message.from_user.id)
+async def get_user(message: Message, uow: UnitOfWork):
+    user_data = await uow.users.get(message.from_user.id)
     await message.answer(json.dumps(user_data, indent=4, ensure_ascii=False))
 
 
@@ -47,7 +46,7 @@ async def exit_debug_commands(message: Message, user: User):
     await message.answer(
         'Главное меню',
         reply_markup=main_kb(user),
-        disable_notification=user.setting_notification,
+        disable_notification=user.setting_notifications,
     )
 
 

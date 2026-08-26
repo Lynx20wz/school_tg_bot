@@ -3,12 +3,13 @@ from typing import Any
 from aiogram import BaseMiddleware
 from aiogram.types import Message
 
-from bot.classes import User
+from database.uow import UnitOfWork
 
 
 class UserMiddleware(BaseMiddleware):
     """Middleware for getting user."""
 
     async def __call__(self, handler, event: Message, data: dict[str, Any]):
-        data['user'] = await User.get_user(message=event)
+        uow: UnitOfWork = data['uow']
+        data['user'] = await uow.users.get_or_create(event.from_user.id)
         return await handler(event, data)

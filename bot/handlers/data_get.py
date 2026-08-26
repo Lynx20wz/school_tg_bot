@@ -4,18 +4,16 @@ from aiogram import F, Router
 from aiogram.filters import Command, or_f
 from aiogram.types import Message
 
-from bot.classes import HomeworkWeek, StudyDay, User
 from bot.keyboard import main_kb
 from bot.until import get_weekday
-from database import DataBaseCrud
+from database import User
 
 data_get_router = Router()
-db = DataBaseCrud()
 
 MAX_WIDTH_MESSAGE = 33
 
 
-@data_get_router.message(or_f(F.text == 'Оценки 📝', Command('marks')))
+@data_get_router.message(or_f(F.text == '📝 Оценки', Command('marks')))
 async def marks(message: Message, user: User):
     response = user.parser.get_marks()
     if not response:
@@ -51,16 +49,15 @@ async def marks(message: Message, user: User):
     await message.answer(
         output,
         reply_markup=main_kb(user),
-        disable_notification=user.setting_notification,
+        disable_notification=user.setting_notifications,
         parse_mode='Markdown',
     )
 
 
-@data_get_router.message(or_f(F.text == 'Расписание 📅', Command('schedule')))
+@data_get_router.message(or_f(F.text == '📅 Расписание', Command('schedule')))
 async def schedule(message: Message, user: User):
-    response = await request_handler(
-        user.parser.get_schedule, message
-    )  # TODO change to user.parser.get_schedule()
+    response = user.parser.get_schedule()
+
     if not response:
         return
 
@@ -111,9 +108,8 @@ async def homework(message: Message, user: User):
     # Getting homework
     hk = HomeworkWeek.from_model(await db.get_homework(user.userid))
     if not hk:
-        request_hk = await request_handler(
-            user.parser.get_homework, message
-        )  # TODO change to user.parser.get_hk()
+        request_hk = user.parser.get_homework()
+
         if not request_hk:
             await msg.delete()
             return
@@ -147,5 +143,5 @@ async def homework(message: Message, user: User):
     await message.answer(
         output,
         parse_mode='Markdown',
-        disable_notification=user.setting_notification,
+        disable_notification=user.setting_notifications,
     )

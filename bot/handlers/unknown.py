@@ -1,8 +1,8 @@
 from aiogram import F, Router
 from aiogram.types import Message
 
-from bot.classes import User
 from bot.logger import logger
+from database import User
 
 unknown_router = Router()
 
@@ -14,5 +14,5 @@ async def unknown_command(message: Message, user: User):
     )
     await message.answer(
         'Извините, нет такой команды. Пожалуйста, используйте доступные кнопки или команды.',
-        disable_notification=user.setting_notification,
+        disable_notification=user.setting_notifications,
     )

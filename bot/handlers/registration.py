@@ -4,11 +4,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
 
-from bot.classes import User
 from bot.keyboard import main_kb, token_kb
-from database import DataBaseCrud
+from database import UnitOfWork, User
 
-db = DataBaseCrud()
 auth_router = Router()
 
 
@@ -27,15 +25,14 @@ async def registration_user(message: Message, state: FSMContext):
 
 
 @auth_router.message(GetToken.token)
-async def end_registration(message: Message, user: User, state: FSMContext):
-    if message.text.strip().startswith('eyJhb'):
-        await state.update_data(token=message.text)
-        data = await state.get_data()
-        user.token = data.get('token')
-        user.student_id = user.parser.get_student_id()
-        await db.update_user(user, ('token', 'student_id'))
+async def end_registration(message: Message, user: User, uow: UnitOfWork, state: FSMContext):
+    data = await state.get_data()
+    token = data.get('token')
+    if token and token.startswith('eyJhb'):
+        student_id = user.parser.get_student_id()
+        await uow.users.set_reg_data(user.userid, token=token, student_id=student_id)
         await message.answer(
-            f'{user.username}, ваш токен успешно зарегистрирован!',
+            f'{message.from_user.username}, ваш токен успешно зарегистрирован!',
             reply_markup=main_kb(user),
         )
         await state.clear()

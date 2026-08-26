@@ -1,12 +1,10 @@
 from aiogram import F, Router
 from aiogram.types import Message
 
-from bot.classes import User
 from bot.keyboard import main_kb, settings_kb
 from bot.logger import logger
-from database import DataBaseCrud
+from database import UnitOfWork, User
 
-db = DataBaseCrud()
 settings_router = Router()
 
 
@@ -32,41 +30,39 @@ async def settings(message: Message, user: User):
             """,
         reply_markup=markup,
         parse_mode='Markdown',
-        disable_notification=user.setting_notification,
+        disable_notification=user.setting_notifications,
     )
 
 
 @settings_router.message(F.text.in_(['Выдача на неделю', 'Выдача на день']))
-async def change_delivery(message: Message, user: User):
-    if message.text == 'Выдача на неделю':
-        user.setting_dw = False
-    elif message.text == 'Выдача на день':
-        user.setting_dw = True
+async def change_delivery(message: Message, user: User, uow: UnitOfWork):
+    setting_dw = False
+    if message.text == 'Выдача на день':
+        setting_dw = True
     markup = settings_kb(user)
-    await user.save_settings(setting_dw=user.setting_dw)
-    logger.debug(f'Changed issue settings ({message.from_user.username} - {user.setting_dw})')
+    await uow.users.update_settings(user, dw=setting_dw)
+    logger.debug(f'Changed issue settings ({message.from_user.username} - {setting_dw})')
     await message.answer(
         'Настройки успешно изменены!',
         reply_markup=markup,
-        disable_notification=user.setting_notification,
+        disable_notification=user.setting_notifications,
     )
 
 
 @settings_router.message(F.text.in_(['Уведомления вкл.', 'Уведомления выкл.']))
-async def change_notification(message: Message, user: User):
-    if message.text == 'Уведомления вкл.':
-        user.setting_notification = False
-    elif message.text == 'Уведомления выкл.':
-        user.setting_notification = True
+async def change_notification(message: Message, user: User, uow: UnitOfWork):
+    setting_notifications = False
+    if message.text == 'Уведомления выкл.':
+        setting_notifications = True
     markup = settings_kb(user)
-    await user.save_settings(setting_notification=user.setting_notification)
+    await uow.users.update_settings(user, notifications=setting_notifications)
     logger.debug(
-        f'Changed notification settings ({message.from_user.username} - {user.setting_notification})'
+        f'Changed notification settings ({message.from_user.username} - {setting_notifications})'
     )
     await message.answer(
         'Настройки успешно изменены!',
         reply_markup=markup,
-        disable_notification=user.setting_notification,
+        disable_notification=setting_notifications,
     )
 
 
@@ -82,7 +78,7 @@ async def change_link(message: Message, user: User):
     await message.answer(
         'Настройки успешно изменены!',
         reply_markup=markup,
-        disable_notification=user.setting_notification,
+        disable_notification=user.setting_notifications,
     )
 
 
@@ -91,14 +87,14 @@ async def exit_settings(message: Message, user: User):
     logger.debug(f'Out of the settings ({message.from_user.username})')
     await user.save_settings(
         setting_dw=user.setting_dw,
-        setting_notification=user.setting_notification,
+        setting_notification=user.setting_notifications,
         setting_hide_link=user.setting_hide_link,
         debug=user.debug,
     )
     await message.answer(
         'Главное меню',
         reply_markup=main_kb(user),
-        disable_notification=user.setting_notification,
+        disable_notification=user.setting_notifications,
     )
 
 

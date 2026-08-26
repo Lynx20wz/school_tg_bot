@@ -6,9 +6,6 @@ from typing import Any, NamedTuple, override
 from pydantic import BaseModel, Field
 
 from bot.until import get_weekday
-from database import HomeworkWeekModel, LessonModel, StudyDayModel
-
-from .serialization_mixin import SerializationMixin
 
 
 class LinkInfo(NamedTuple):
@@ -16,18 +13,16 @@ class LinkInfo(NamedTuple):
     link: str
 
 
-class Lesson(BaseModel, SerializationMixin):
+class Lesson(BaseModel):
     name: str
     homework: str = Field(frozen=True)
     links: list[LinkInfo] = Field(examples=[LinkInfo('name', 'link')])
-    model: type = LessonModel
 
 
-class StudyDay(BaseModel, SerializationMixin):
+class StudyDay(BaseModel):
     name: str
     date: datetime = Field(frozen=True)
     lessons: list[Lesson]
-    model: type = StudyDayModel
 
     @override
     def __iter__(self) -> Iterator[Lesson]:
@@ -37,9 +32,7 @@ class StudyDay(BaseModel, SerializationMixin):
         return len(self.lessons)
 
 
-class HomeworkWeek(SerializationMixin):
-    model: type = HomeworkWeekModel
-
+class HomeworkWeek:
     def __init__(
         self,
         id_: int,
@@ -49,7 +42,6 @@ class HomeworkWeek(SerializationMixin):
         days: list[StudyDay] | None = None,
         **kwargs: dict[str, Any],
     ):
-        super().__init__()
         # Date
         self.id_: int = id_
         self._begin: datetime = begin
@@ -84,6 +76,7 @@ class HomeworkWeek(SerializationMixin):
     def days(self) -> list[StudyDay]:
         return self.__days
 
+    # TODO: move everything below to the parser, most likely.
     def __get_ready_homework(self, raw_response: dict[str, Any]) -> list[StudyDay]:
         """Collect ready homework data from raw response."""
         days = [
@@ -122,6 +115,6 @@ class HomeworkWeek(SerializationMixin):
         # FIXME: links doesn't work
         title: str = item.get('title', '')
         if re.search(r'\.(?:png|jpg|docx|pptx)$', title, re.MULTILINE):
-            return LinkInfo(title, item.get('link'))
+            return LinkInfo(title, item.get('link', ''))
         else:
             return LinkInfo(title, item['urls'][2]['url'])

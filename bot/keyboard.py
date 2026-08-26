@@ -14,26 +14,26 @@ from aiogram.types import (
 )
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
-from bot.classes import User
+from database.models import User
 
 
 def main_kb(user: User) -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardBuilder(
         [
             [
-                KeyboardButton(text='Расписание 📅'),
-                KeyboardButton(text='Оценки 📝'),
-                KeyboardButton(text='Домашнее задание 📓'),
+                KeyboardButton(text='📅 Расписание'),
+                KeyboardButton(text='📝 Оценки'),
+                KeyboardButton(text='📓 Домашнее задание'),
             ],
             [
-                KeyboardButton(text='Настройки ⚙️'),
+                KeyboardButton(text='⚙️ Настройки'),
             ],
         ]
     )
 
     if user and user.debug:
-        kb.add(KeyboardButton(text='Команды дебага'))
-    return kb.as_markup()
+        kb.add(KeyboardButton(text='🪲 Команды дебага'))
+    return kb.as_markup(resize_keyboard=True)
 
 
 def settings_kb(user: User) -> ReplyKeyboardMarkup:
@@ -43,7 +43,7 @@ def settings_kb(user: User) -> ReplyKeyboardMarkup:
             [
                 KeyboardButton(text='Выдача на неделю' if user.setting_dw else 'Выдача на день'),
                 KeyboardButton(
-                    text='Уведомления вкл.' if user.setting_notification else 'Уведомления выкл.'
+                    text='Уведомления вкл.' if user.setting_notifications else 'Уведомления выкл.'
                 ),
                 KeyboardButton(
                     text='Показать ссылки' if user.setting_hide_link else 'Скрыть ссылки'
